@@ -9,10 +9,6 @@ SemanticMapper::SemanticMapper(){
 
   _associations.clear();
 
-  _raw_depth_scale = 0.001;
-  _min_distance = 0.02;
-  _max_distance = 8.0;
-
   _local_set = false;
   _global_set = false;
 
@@ -27,69 +23,10 @@ SemanticMapper::~SemanticMapper(){
   delete _global_map;
 }
 
-ObjectPtr SemanticMapper::objectFromDetection(const Detection &detection){
-
-  std::string type = detection.type().substr(0,detection.type().find_first_of("_"));
-  std::cerr << type << ": " << std::endl;
-  Eigen::Vector3f color = detection.color().cast<float>()/255.0f;
-  std::cerr << "IBB: [(" << detection.topLeft().transpose() << "," << detection.bottomRight().transpose() << ")]" << std::endl;
-
-  const std::vector<Eigen::Vector2i> &pixels = detection.pixels();
-  int num_pixels = pixels.size();
-  Cloud3D cloud;
-  cloud.resize(num_pixels);
-  int k=0;
-
-  Eigen::Vector3f min(std::numeric_limits<float>::max(),std::numeric_limits<float>::max(),std::numeric_limits<float>::max());
-  Eigen::Vector3f max(-std::numeric_limits<float>::max(),-std::numeric_limits<float>::max(),-std::numeric_limits<float>::max());
-
-  for(int i=0; i<num_pixels; ++i){
-    const cv::Vec3f& cv_point = _points_image.at<const cv::Vec3f>(pixels[i].x(), pixels[i].y());
-    const cv::Vec3f& cv_normal = _normals_image.at<const cv::Vec3f>(pixels[i].x(), pixels[i].y());
-
-    if(cv::norm(cv_point) < 1e-3 || cv::norm(cv_normal) < 0.5)
-      continue;
-
-    Eigen::Vector3f point(cv_point[0], cv_point[1],cv_point[2]);
-    Eigen::Vector3f normal(cv_normal[0], cv_normal[1],cv_normal[2]);
-
-    point = _globalT*_fixed_transform*point;
-
-    cloud[k] = RichPoint3D(point,normal,1.0f);
-    k++;
-
-    if(point.x() < min.x())
-      min.x() = point.x();
-    if(point.x() > max.x())
-      max.x() = point.x();
-    if(point.y() < min.y())
-      min.y() = point.y();
-    if(point.y() > max.y())
-      max.y() = point.y();
-    if(point.z() < min.z())
-      min.z() = point.z();
-    if(point.z() > max.z())
-      max.z() = point.z();
-  }
-
-  //check if object is empty
-  if(!k)
-    return nullptr;
-
-  cloud.resize(k);
-
-  //    cloud.voxelize(0.05f);
-
-  std::cerr << "WBB: [(" << min.transpose() << "," << max.transpose() << ")]" << std::endl;
-
-  return ObjectPtr(new Object(-1,type,Eigen::Isometry3f::Identity(),min,max,color,cloud));
-
-}
-
 void SemanticMapper::extractObjects(const DetectionVector &detections,
-                                    const cv::Mat &depth_image){
+                                    const srrg_core::Float3Image &points_image){
 
-  //the first frame populates the global map, the others populate the local map
+  //the first message populates the global map, the others populate the local map
   bool populate_global = false;
   if(!_global_set){
     populate_global = true;
@@ -98,27 +35,6 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     _local_map->clear();
     _local_set = true;
   }
-
-  int rows=depth_image.rows;
-  int cols=depth_image.cols;
-
-  //compute points image
-  srrg_core::Float3Image directions_image;
-  directions_image.create(rows,cols);
-  initializePinholeDirections(directions_image,_K);
-  _points_image.create(rows,cols);
-  computePointsImage(_points_image,
-                     directions_image,
-                     depth_image,
-                     0.02f,
-                     8.0f);
-
-  //compute point cloud normals
-  computeSimpleNormals(_normals_image,
-                       _points_image,
-                       3,
-                       3,
-                       8.0f);
 
   std::cerr << std::endl << "[Objects Extraction] " << std::endl;
 
@@ -129,11 +45,57 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     if(detection.pixels().size() < 10)
       continue;
 
-    ObjectPtr obj_ptr = objectFromDetection(detection);
+    std::string type = detection.type().substr(0,detection.type().find_first_of("_"));
+    std::cerr << type << ": " << std::endl;
+    Eigen::Vector3f color = detection.color().cast<float>()/255.0f;
+    std::cerr << "IBB: [(" << detection.topLeft().transpose() << "," << detection.bottomRight().transpose() << ")]" << std::endl;
 
-    if(!obj_ptr)
+    const std::vector<Eigen::Vector2i> &pixels = detection.pixels();
+    int num_pixels = pixels.size();
+    Cloud3D cloud;
+    cloud.resize(num_pixels);
+    int k=0;
+
+    Eigen::Vector3f min(std::numeric_limits<float>::max(),std::numeric_limits<float>::max(),std::numeric_limits<float>::max());
+    Eigen::Vector3f max(-std::numeric_limits<float>::max(),-std::numeric_limits<float>::max(),-std::numeric_limits<float>::max());
+
+    for(int i=0; i<num_pixels; ++i){
+      const cv::Vec3f& cv_point = points_image.at<const cv::Vec3f>(pixels[i].x(), pixels[i].y());
+
+      if(cv::norm(cv_point) < 1e-3)
+        continue;
+
+      Eigen::Vector3f point(cv_point[0], cv_point[1],cv_point[2]);
+
+      point = _globalT*_fixed_transform*point;
+
+      cloud[k] = RichPoint3D(point,Eigen::Vector3f::Zero(),1.0f);
+      k++;
+
+      if(point.x() < min.x())
+        min.x() = point.x();
+      if(point.x() > max.x())
+        max.x() = point.x();
+      if(point.y() < min.y())
+        min.y() = point.y();
+      if(point.y() > max.y())
+        max.y() = point.y();
+      if(point.z() < min.z())
+        min.z() = point.z();
+      if(point.z() > max.z())
+        max.z() = point.z();
+    }
+
+    //check if object is empty
+    if(!k)
       continue;
 
+    cloud.resize(k);
+
+
+    std::cerr << "WBB: [(" << min.transpose() << "," << max.transpose() << ")]" << std::endl;
+
+    ObjectPtr obj_ptr = ObjectPtr(new Object(-1,type,Eigen::Isometry3f::Identity(),min,max,color,cloud));
     if(populate_global){
       obj_ptr->id() = _global_map->size();
       _global_map->addObject(obj_ptr);

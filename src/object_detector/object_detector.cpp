@@ -11,6 +11,7 @@ ObjectDetector::ObjectDetector(){
 void ObjectDetector::setupDetections(){
 
   //initialize detection vector
+  _detections.clear();
   int num_models = _models.size();
   _detections.resize(num_models);
 
@@ -53,16 +54,14 @@ void ObjectDetector::setupDetections(){
   }
 }
 
-void ObjectDetector::computeImageBoundingBoxes(){
+void ObjectDetector::compute(const Float3Image & points_image){
 
-  for(int r=0; r<_points_image.rows; ++r){
-    const cv::Vec3f* point_ptr=_points_image.ptr<const cv::Vec3f>(r);
-    const cv::Vec3f* normal_ptr=_normals_image.ptr<const cv::Vec3f>(r);
-    for(int c=0; c<_points_image.cols; ++c, ++point_ptr, ++normal_ptr){
+  for(int r=0; r<points_image.rows; ++r){
+    const cv::Vec3f* point_ptr=points_image.ptr<const cv::Vec3f>(r);
+    for(int c=0; c<points_image.cols; ++c, ++point_ptr){
       const cv::Vec3f& p = *point_ptr;
-      const cv::Vec3f& n = *normal_ptr;
 
-      if(cv::norm(p) < 1e-3 || cv::norm(n) < 0.5)
+      if(cv::norm(p) < 1e-3)
         continue;
 
       const Eigen::Vector3f point(p[0],p[1],p[2]);
@@ -88,46 +87,6 @@ void ObjectDetector::computeImageBoundingBoxes(){
       }
     }
   }
-}
-
-DetectionVector ObjectDetector::compute(const cv::Mat &rgb_image_,
-                                        const cv::Mat &raw_depth_image_){
-
-  int rows=rgb_image_.rows;
-  int cols=rgb_image_.cols;
-
-  _detections.clear();
-
-  //compute points image
-  srrg_core::Float3Image directions_image;
-  directions_image.create(rows,cols);
-  initializePinholeDirections(directions_image,_K);
-  _points_image.create(rows,cols);
-  computePointsImage(_points_image,
-                     directions_image,
-                     raw_depth_image_,
-                     0.02f,
-                     8.0f);
-
-  //compute point cloud normals
-  computeSimpleNormals(_normals_image,
-                       _points_image,
-                       3,
-                       3,
-                       8.0f);
-
-  double cv_time = (double)cv::getTickCount();
-  setupDetections();
-
-  computeImageBoundingBoxes();
-  printf("Computing BB took: %f\n",((double)cv::getTickCount() - cv_time)/cv::getTickFrequency());
-
-  //Compute label image (for visualization only)
-  _label_image.create(rows,cols);
-  _label_image=cv::Vec3b(0,0,0);
-  computeLabelImage();
-
-  return _detections;
 }
 
 Eigen::Vector3i ObjectDetector::type2color(std::string type){

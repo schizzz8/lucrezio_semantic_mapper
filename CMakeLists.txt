@@ -124,7 +124,7 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS src
-  LIBRARIES object_detector_library semantic_mapper_library
+  LIBRARIES object_detector_library semantic_mapper_library semantic_mapper_node_library
   CATKIN_DEPENDS
     srrg_core
     cv_bridge 

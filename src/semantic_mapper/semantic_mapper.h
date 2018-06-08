@@ -9,7 +9,9 @@
 #include <srrg_image_utils/depth_utils.h>
 #include <srrg_image_utils/point_image_utils.h>
 
-#include <object_detector/object_detector.h>
+//#include <object_detector/object_detector.h>
+
+#include <object_detector/detection.h>
 
 #include "semantic_map.h"
 
@@ -21,15 +23,12 @@ class SemanticMapper{
 
     virtual ~SemanticMapper();
 
-    //set camera matrix
-    inline void setK(const Eigen::Matrix3f& K_){_K = K_; _invK = _K.inverse();}
-
     //set robot pose
     inline void setGlobalT(const Eigen::Isometry3f &globalT_){_globalT = globalT_;}
 
     //specialized extractObjects method
     void extractObjects(const DetectionVector &detections,
-                        const cv::Mat &depth_image_);
+                        const srrg_core::Float3Image &points_image);
 
     //specialized findAssociations method
     void findAssociations();
@@ -37,13 +36,9 @@ class SemanticMapper{
     //specialized mergeMaps method
     void mergeMaps();
 
+    const SemanticMap* globalMap() const {return _global_map;}
+
   protected:
-
-    //organized point cloud obtained from the depth image
-    srrg_core::Float3Image _points_image;
-
-    //point cloud normals
-    srrg_core::Float3Image _normals_image;
 
     //pose of the robot w.r.t. the global map
     Eigen::Isometry3f _globalT;
@@ -63,15 +58,5 @@ class SemanticMapper{
     //this map stores the output of the data-association
     ObjectPtrIdMap _associations;
 
-  private:
 
-    //rgbd camera parameters
-    float _raw_depth_scale;
-    float _min_distance, _max_distance;
-
-    //rgbd camera matrix
-    Eigen::Matrix3f _K,_invK;
-
-    //this function builds an object from the detector output
-    ObjectPtr objectFromDetection(const Detection &detection);
 };
