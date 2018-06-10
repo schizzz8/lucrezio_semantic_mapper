@@ -21,8 +21,8 @@ SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
   _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2, _3, _4));
 
   _camera_transform.setIdentity();
-  _camera_transform.translation() = Eigen::Vector3f(0.0,0.0,0.5);
-  _camera_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
+  _camera_transform.translation() = Eigen::Vector3f(0.0,0.0,0.6);
+//  _camera_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
 
   _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
   _cloud_pub = _nh.advertise<PointCloud>("visualization_cloud",1);
@@ -52,7 +52,7 @@ void SemanticMapperNode::cameraInfoCallback(const sensor_msgs::CameraInfo::Const
 void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
                                         const sensor_msgs::Image::ConstPtr &depth_image_msg,
                                         const sensor_msgs::Image::ConstPtr &rgb_image_msg,
-                                        const geometry_msgs::PoseWithCovarianceStamped::ConstPtr & pose_msg){
+                                        const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &pose_msg){
 
   if(_got_info && !logical_image_msg->models.empty()){
 
@@ -91,9 +91,9 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
     const DetectionVector &detections = _detector.detections();
 
     //get camera pose
-    tf::StampedTransform camera_pose;
-    tf::poseMsgToTF(pose_msg->pose.pose,camera_pose);
-    Eigen::Isometry3f robot_transform = tfTransform2eigen(camera_pose);
+    tf::StampedTransform robot_pose;
+    tf::poseMsgToTF(pose_msg->pose.pose,robot_pose);
+    Eigen::Isometry3f robot_transform = tfTransform2eigen(robot_pose);
 
     //set globalT to mapper
     _mapper.setGlobalT(robot_transform*_camera_transform);
