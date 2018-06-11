@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <ros/ros.h>
+#include <ros/package.h>
 
 #include <sensor_msgs/CameraInfo.h>
 #include <image_transport/image_transport.h>
@@ -15,6 +16,7 @@
 
 #include <object_detector/object_detector.h>
 #include <semantic_mapper/semantic_mapper.h>
+#include <map_evaluator/map_evaluator.h>
 
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_ros/point_cloud.h>
@@ -38,6 +40,8 @@ public:
                         const sensor_msgs::Image::ConstPtr &rgb_image_msg,
                         const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &pose_msg);
 
+    void evaluateMap();
+
 protected:
     ros::NodeHandle _nh;
 
@@ -58,6 +62,7 @@ protected:
 
     ObjectDetector _detector;
     SemanticMapper _mapper;
+    MapEvaluator _evaluator;
 
     //rgbd camera matrix
     Eigen::Matrix3f _K;

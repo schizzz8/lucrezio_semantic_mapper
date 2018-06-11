@@ -42,9 +42,8 @@ void ObjectDetector::setupDetections(){
 
     //set detection type and color
     std::string type = _models[i].type();
-    std::string detection_type = type.substr(0,type.find_first_of("_"));
-    _detections[i].type() = detection_type;
-    const Eigen::Vector3i color = type2color(detection_type);
+    _detections[i].type() = type;
+    const Eigen::Vector3i color = type2color(type);
     _detections[i].color() = color;
 
     //init detection
@@ -94,25 +93,25 @@ Eigen::Vector3i ObjectDetector::type2color(std::string type){
 
   if(type == "sink")
     c = 1;
-  if(type == "burner")
+  if(type == "burner_stove")
     c = 2;
-  if(type == "table")
+  if(type == "table_ikea_bjursta")
     c = 3;
-  if(type == "chair")
+  if(type == "chair_ikea_borje")
     c = 4;
   if(type == "couch")
     c = 5;
-  if(type == "bed")
+  if(type == "table_tv")
     c = 6;
-  if(type == "cabinet")
+  if(type == "tv_samsung")
     c = 7;
-  if(type == "bathroom")
+  if(type == "cabinet_ikea_malm_big")
     c = 8;
   if(type == "milk")
     c = 9;
   if(type == "salt")
     c = 10;
-  if(type == "tomato")
+  if(type == "tomato_sauce")
     c = 11;
   if(type == "zwieback")
     c = 12;

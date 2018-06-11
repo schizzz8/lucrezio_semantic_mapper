@@ -5,6 +5,7 @@ add_library(semantic_mapper_node_library SHARED
 target_link_libraries(semantic_mapper_node_library
   object_detector_library
   semantic_mapper_library
+  map_evaluator_library
   ${catkin_LIBRARIES}
 )
 

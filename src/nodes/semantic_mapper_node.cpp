@@ -126,6 +126,15 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
   }
 }
 
+void SemanticMapperNode::evaluateMap(){
+  std::cerr << std::endl;
+  std::string path = ros::package::getPath("lucrezio_simulation_environments");
+  _evaluator.setReference(path+"/config/envs/test_apartment_2/object_locations.yaml");
+  _evaluator.setCurrent(_mapper.globalMap());
+
+  _evaluator.compute();
+}
+
 Eigen::Isometry3f SemanticMapperNode::tfTransform2eigen(const tf::Transform& p){
   Eigen::Isometry3f iso;
   iso.translation().x()=p.getOrigin().x();
@@ -205,7 +214,7 @@ void SemanticMapperNode::makeMarkerFromObject(visualization_msgs::Marker &marker
   marker.header.frame_id = "/map";
   marker.header.stamp = ros::Time::now();
   marker.ns = "basic_shapes";
-  marker.id = object->id();
+//  marker.id = object->id();
   marker.type = visualization_msgs::Marker::CUBE;
   marker.action = visualization_msgs::Marker::ADD;
 

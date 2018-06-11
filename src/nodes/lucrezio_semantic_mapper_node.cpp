@@ -15,5 +15,7 @@ int main(int argc, char **argv){
     rate.sleep();
   }
 
+  mapper.evaluateMap();
+
   return 0;
 }
