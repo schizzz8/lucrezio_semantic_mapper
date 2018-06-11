@@ -15,6 +15,8 @@ int main(int argc, char **argv){
     rate.sleep();
   }
 
+  std::cerr << std::endl;
+  std::cerr << "Map Evaluation..." << std::endl;
   mapper.evaluateMap();
 
   return 0;

@@ -98,14 +98,12 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
 
     position = (min+max)/2.0f;
 
-//    ObjectPtr obj_ptr = ObjectPtr(new Object(-1,type,Eigen::Isometry3f::Identity(),min,max,color,cloud));
     ObjectPtr obj_ptr = ObjectPtr(new Object(model,position,min,max,color,cloud));
-    if(populate_global){
-//      obj_ptr->id() = _global_map->size();
+    if(populate_global)
       _global_map->addObject(obj_ptr);
-    } else {
+    else
       _local_map->addObject(obj_ptr);
-    }
+
   }
 }
 
@@ -124,7 +122,6 @@ void SemanticMapper::findAssociations(){
 
   for(int i=0; i < global_size; ++i){
     const ObjectPtr &global = (*_global_map)[i];
-//    const std::string &global_type = global->type();
     const std::string &global_model = global->model();
 
     std::cerr << "\t>> Global: " << global_model << "(" << global->position().transpose() << ")";
@@ -134,11 +131,8 @@ void SemanticMapper::findAssociations(){
 
     for(int j=0; j < local_size; ++j){
       const ObjectPtr &local = (*_local_map)[j];
-//      const std::string &local_type = local->type();
       const std::string &local_model = local->model();
 
-//      if(local_type != global_type)
-//        continue;
       if(local_model != global_model)
         continue;
 
@@ -157,7 +151,6 @@ void SemanticMapper::findAssociations(){
       continue;
     }
 
-//    std::cerr << " - Local: " << local_best->type() << "(" << local_best->pose().translation().transpose() << ")" << std::endl;
     std::cerr << " - Local: " << local_best->model() << "(" << local_best->position().transpose() << ")" << std::endl;
     _associations[local_best] = i;
   }
@@ -178,16 +171,12 @@ void SemanticMapper::mergeMaps(){
       association_id = it->second;
       ObjectPtr &global_associated = (*_global_map)[association_id];
 
-//      if(local->type() != global_associated->type())
-//        continue;
-
       if(local->model() != global_associated->model())
         continue;
 
       global_associated->merge(local);
       merged++;
     } else {
-//      local->id() = _global_map->size();
       _global_map->addObject(local);
       added++;
     }

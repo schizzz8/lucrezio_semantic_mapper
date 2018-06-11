@@ -24,13 +24,14 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
+#include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
 
 class SemanticMapperNode{
 
-public:
+  public:
     SemanticMapperNode(ros::NodeHandle nh_);
 
     void cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info_msg);
@@ -42,7 +43,7 @@ public:
 
     void evaluateMap();
 
-protected:
+  protected:
     ros::NodeHandle _nh;
 
     ros::Subscriber _camera_info_sub;
@@ -77,9 +78,9 @@ protected:
     image_transport::ImageTransport _it;
     image_transport::Publisher _label_image_pub;
     ros::Publisher _cloud_pub;
-    //    ros::Publisher _markers_pub;
+    ros::Publisher _marker_pub;
 
-private:
+  private:
     //extract models from logical image msg
     ModelVector logicalImageToModels(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg);
 
@@ -90,5 +91,5 @@ private:
 
     void makeCloudFromMap(PointCloud::Ptr &cloud, const SemanticMap *global_map);
 
-    void makeMarkerFromObject(visualization_msgs::Marker &marker, const ObjectPtr & object);
+    void makeMarkerFromMap(visualization_msgs::Marker &marker, const SemanticMap *global_map);
 };

@@ -22,11 +22,10 @@ SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
 
   _camera_transform.setIdentity();
   _camera_transform.translation() = Eigen::Vector3f(0.0,0.0,0.6);
-//  _camera_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
 
   _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
   _cloud_pub = _nh.advertise<PointCloud>("visualization_cloud",1);
-  //  _markers_pub = _nh.advertise<visualization_msgs::MarkerArray>("visualization_markers",1);
+  _marker_pub = _nh.advertise<visualization_msgs::Marker>("visualization_marker",1);
 }
 
 void SemanticMapperNode::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info_msg){
@@ -113,8 +112,8 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
     label_image=cv::Vec3b(0,0,0);
     makeLabelImageFromDetections(label_image,detections);
     sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
-                                                                     "bgr8",
-                                                                     label_image).toImageMsg();
+                                                               "bgr8",
+                                                               label_image).toImageMsg();
     _label_image_pub.publish(label_image_msg);
 
     //publish map point cloud
@@ -122,6 +121,13 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
     if(_mapper.globalMap()->size()){
       makeCloudFromMap(cloud_msg,_mapper.globalMap());
       _cloud_pub.publish (cloud_msg);
+    }
+
+    //publish object bounding boxes
+    visualization_msgs::Marker marker;
+    if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
+      makeMarkerFromMap(marker,_mapper.globalMap());
+      _marker_pub.publish(marker);
     }
   }
 }
@@ -197,11 +203,17 @@ void SemanticMapperNode::makeCloudFromMap(PointCloud::Ptr &cloud, const Semantic
   cloud->height = 1;
   int num_points=0;
   for(int i=0; i < global_map->size(); ++i){
+    const Eigen::Vector3f &color = global_map->at(i)->color();
     const srrg_core::Cloud3D &object_cloud = global_map->at(i)->cloud();
     for(int j=0; j < object_cloud.size(); ++j){
-      cloud->points.push_back(pcl::PointXYZ(object_cloud[j].point().x(),
-                                            object_cloud[j].point().y(),
-                                            object_cloud[j].point().z()));
+      pcl::PointXYZRGB point;
+      point.x = object_cloud[j].point().x();
+      point.y = object_cloud[j].point().y();
+      point.z = object_cloud[j].point().z();
+      point.r = color.z()*255;
+      point.g = color.y()*255;
+      point.b = color.x()*255;
+      cloud->points.push_back(point);
       num_points++;
     }
   }
@@ -210,33 +222,79 @@ void SemanticMapperNode::makeCloudFromMap(PointCloud::Ptr &cloud, const Semantic
 
 }
 
-void SemanticMapperNode::makeMarkerFromObject(visualization_msgs::Marker &marker, const ObjectPtr &object){
+void SemanticMapperNode::makeMarkerFromMap(visualization_msgs::Marker & marker, const SemanticMap *global_map){
   marker.header.frame_id = "/map";
   marker.header.stamp = ros::Time::now();
   marker.ns = "basic_shapes";
-//  marker.id = object->id();
-  marker.type = visualization_msgs::Marker::CUBE;
+//  marker.id = i;
+  marker.type = visualization_msgs::Marker::LINE_LIST;
   marker.action = visualization_msgs::Marker::ADD;
 
-  const Eigen::Vector3f centroid = (object->max()+object->min())*0.5f;
-  const Eigen::Vector3f half_size = (object->max()-object->min())*0.5f;
+  for(int i=0; i < global_map->size(); ++i){
+    const ObjectPtr& object = global_map->at(i);
 
-  marker.pose.position.x = centroid.x();
-  marker.pose.position.y = centroid.y();
-  marker.pose.position.z = centroid.z();
-  marker.pose.orientation.x = 0.0;
-  marker.pose.orientation.y = 0.0;
-  marker.pose.orientation.z = 0.0;
-  marker.pose.orientation.w = 1.0;
+    marker.scale.x = 0.015;
+    marker.scale.y = 0.0;
+    marker.scale.z = 0.0;
 
-  marker.scale.x = half_size.x();
-  marker.scale.y = half_size.y();
-  marker.scale.z = half_size.z();
+    geometry_msgs::Point min,max;
+    min.x = object->min().x();min.y = object->min().y();min.z = object->min().z();
+    max.x = object->max().x();max.y = object->max().y();max.z = object->max().z();
 
-  marker.color.b = object->color().x();
-  marker.color.g = object->color().y();
-  marker.color.r = object->color().z();
+    geometry_msgs::Point a,b,c,d,e,f,g,h;
+    a.x=min.x;a.y=min.y;a.z=min.z;
+    b.x=max.x;b.y=min.y;b.z=min.z;
+    c.x=max.x;c.y=max.y;c.z=min.z;
+    d.x=min.x;d.y=max.y;d.z=min.z;
+    e.x=min.x;e.y=min.y;e.z=max.z;
+    f.x=max.x;f.y=min.y;f.z=max.z;
+    g.x=max.x;g.y=max.y;g.z=max.z;
+    h.x=min.x;h.y=max.y;h.z=max.z;
+
+    marker.points.push_back(a);
+    marker.points.push_back(b);
+
+    marker.points.push_back(b);
+    marker.points.push_back(c);
+
+    marker.points.push_back(c);
+    marker.points.push_back(d);
+
+    marker.points.push_back(d);
+    marker.points.push_back(a);
+
+    marker.points.push_back(e);
+    marker.points.push_back(f);
+
+    marker.points.push_back(f);
+    marker.points.push_back(g);
+
+    marker.points.push_back(g);
+    marker.points.push_back(h);
+
+    marker.points.push_back(h);
+    marker.points.push_back(e);
+
+    marker.points.push_back(a);
+    marker.points.push_back(e);
+
+    marker.points.push_back(b);
+    marker.points.push_back(f);
+
+    marker.points.push_back(c);
+    marker.points.push_back(g);
+
+    marker.points.push_back(d);
+    marker.points.push_back(h);
+
+
+  }
+  marker.color.b = 1;
+  marker.color.g = 0;
+  marker.color.r = 0;
   marker.color.a = 1.0;
 
   marker.lifetime = ros::Duration();
+
+
 }

@@ -16,14 +16,6 @@ Object::Object(const string &model_,
   _color(color_),
   _cloud(cloud_){}
 
-//bool Object::operator <(const Object &o){
-//  return (this->_id < o.id());
-//}
-
-//bool Object::operator ==(const Object &o){
-//  return (this->_id == o.id());
-//}
-
 void Object::merge(const ObjectPtr & o){
   if(o->min().x() < _min.x())
     _min.x() = o->min().x();
@@ -40,10 +32,10 @@ void Object::merge(const ObjectPtr & o){
 
   _position = (_min+_max)/2.0f;
 
-  //    _cloud.add(o->cloud());
-  //    _cloud.voxelize(0.05f);
+  _cloud.add(o->cloud());
+//  _cloud.voxelize(0.01f);
 
-  _cloud = o->cloud();
+//  _cloud = o->cloud();
 
 }
 

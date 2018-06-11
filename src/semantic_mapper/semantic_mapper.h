@@ -57,6 +57,4 @@ class SemanticMapper{
 
     //this map stores the output of the data-association
     ObjectPtrIdMap _associations;
-
-
 };
