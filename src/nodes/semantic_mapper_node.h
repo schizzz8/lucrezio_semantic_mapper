@@ -9,6 +9,7 @@
 #include <lucrezio_simulation_environments/LogicalImage.h>
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
+#include <tf/transform_listener.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
@@ -27,6 +28,10 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include <gazebo_msgs/LinkStates.h>
+
+#include <geometry_msgs/Twist.h>
+
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
 
 class SemanticMapperNode{
@@ -36,12 +41,18 @@ class SemanticMapperNode{
 
     void cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info_msg);
 
+    void cameraPoseCallback(const gazebo_msgs::LinkStates::ConstPtr& camera_pose_msg);
+
+    //    void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
+    //                        const sensor_msgs::Image::ConstPtr &depth_image_msg,
+    //                        const sensor_msgs::Image::ConstPtr &rgb_image_msg,
+    //                        const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &pose_msg);
     void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
-                        const sensor_msgs::Image::ConstPtr &depth_image_msg,
-                        const sensor_msgs::Image::ConstPtr &rgb_image_msg,
-                        const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &pose_msg);
+                        const sensor_msgs::Image::ConstPtr &depth_image_msg);
 
     void evaluateMap();
+
+    void cmdVelCallback(const geometry_msgs::Twist::ConstPtr& cmd_vel_msg);
 
   protected:
     ros::NodeHandle _nh;
@@ -50,15 +61,21 @@ class SemanticMapperNode{
     bool _got_info;
     bool _first = true;
 
+    ros::Subscriber _camera_pose_sub;
+    Eigen::Isometry3f _camera_transform;
+    ros::Time _last_timestamp;
+
     //synchronized subscriber to rgbd frame and logical_image
     message_filters::Subscriber<lucrezio_simulation_environments::LogicalImage> _logical_image_sub;
     message_filters::Subscriber<sensor_msgs::Image> _depth_image_sub;
-    message_filters::Subscriber<sensor_msgs::Image> _rgb_image_sub;
+    //    message_filters::Subscriber<sensor_msgs::Image> _rgb_image_sub;
     message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> _pose_sub;
+    //    typedef message_filters::sync_policies::ApproximateTime<lucrezio_simulation_environments::LogicalImage,
+    //    sensor_msgs::Image,
+    //    sensor_msgs::Image,
+    //    geometry_msgs::PoseWithCovarianceStamped> FilterSyncPolicy;
     typedef message_filters::sync_policies::ApproximateTime<lucrezio_simulation_environments::LogicalImage,
-    sensor_msgs::Image,
-    sensor_msgs::Image,
-    geometry_msgs::PoseWithCovarianceStamped> FilterSyncPolicy;
+    sensor_msgs::Image> FilterSyncPolicy;
     message_filters::Synchronizer<FilterSyncPolicy> _synchronizer;
 
     ObjectDetector _detector;
@@ -67,9 +84,6 @@ class SemanticMapperNode{
 
     //rgbd camera matrix
     Eigen::Matrix3f _K;
-
-    //camera pose w.r.t robot base link
-    Eigen::Isometry3f _camera_transform;
 
     //organized point cloud obtained from the depth image
     srrg_core::Float3Image _points_image;
@@ -80,11 +94,16 @@ class SemanticMapperNode{
     ros::Publisher _cloud_pub;
     ros::Publisher _marker_pub;
 
+    ros::Subscriber _cmd_vel_sub;
+
+    bool _enabled;
+
   private:
     //extract models from logical image msg
     ModelVector logicalImageToModels(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg);
 
     Eigen::Isometry3f tfTransform2eigen(const tf::Transform& p);
+    Eigen::Isometry3f poseMsg2eigen(const geometry_msgs::Pose& p);
     tf::Transform eigen2tfTransform(const Eigen::Isometry3f& T);
 
     void makeLabelImageFromDetections(srrg_core::RGBImage &label_image, const DetectionVector &detections);

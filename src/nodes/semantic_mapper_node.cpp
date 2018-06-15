@@ -7,9 +7,10 @@ SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
   _nh(nh_),
   _logical_image_sub(_nh,"/gazebo/logical_camera_image",1),
   _depth_image_sub(_nh,"/camera/depth/image_raw",1),
-  _rgb_image_sub(_nh,"/camera/rgb/image_raw", 1),
-  _pose_sub(_nh,"/amcl_pose",1),
-  _synchronizer(FilterSyncPolicy(10),_logical_image_sub,_depth_image_sub,_rgb_image_sub,_pose_sub),
+//  _rgb_image_sub(_nh,"/camera/rgb/image_raw", 1),
+  //  _pose_sub(_nh,"/amcl_pose",1),
+  //  _synchronizer(FilterSyncPolicy(10),_logical_image_sub,_depth_image_sub,_rgb_image_sub,_pose_sub),
+  _synchronizer(FilterSyncPolicy(10),_logical_image_sub,_depth_image_sub),
   _it(_nh){
 
   _got_info = false;
@@ -18,14 +19,28 @@ SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
                                    &SemanticMapperNode::cameraInfoCallback,
                                    this);
 
-  _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2, _3, _4));
+  _camera_pose_sub = _nh.subscribe("/gazebo/link_states",
+                                   1000,
+                                   &SemanticMapperNode::cameraPoseCallback,
+                                   this);
+
+  //  _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2, _3, _4));
+  _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2));
 
   _camera_transform.setIdentity();
-  _camera_transform.translation() = Eigen::Vector3f(0.0,0.0,0.6);
+  _last_timestamp = ros::Time(0);
+  //  _camera_transform.translation() = Eigen::Vector3f(0.0,0.0,0.6);
 
   _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
   _cloud_pub = _nh.advertise<PointCloud>("visualization_cloud",1);
   _marker_pub = _nh.advertise<visualization_msgs::Marker>("visualization_marker",1);
+
+  _cmd_vel_sub = _nh.subscribe("/lucrezio/cmd_vel",
+                               1000,
+                               &SemanticMapperNode::cmdVelCallback,
+                               this);
+
+  _enabled = true;
 }
 
 void SemanticMapperNode::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info_msg){
@@ -48,26 +63,34 @@ void SemanticMapperNode::cameraInfoCallback(const sensor_msgs::CameraInfo::Const
   _camera_info_sub.shutdown();
 }
 
-void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
-                                        const sensor_msgs::Image::ConstPtr &depth_image_msg,
-                                        const sensor_msgs::Image::ConstPtr &rgb_image_msg,
-                                        const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &pose_msg){
+void SemanticMapperNode::cameraPoseCallback(const gazebo_msgs::LinkStates::ConstPtr &camera_pose_msg){
+  _last_timestamp = ros::Time::now();
 
-  if(_got_info && !logical_image_msg->models.empty()){
+  const std::vector<std::string> &names = camera_pose_msg->name;
+  for(size_t i=0; i<names.size(); ++i){
+    if(names[i].compare("robot::camera_link") == 0){
+      const geometry_msgs::Pose camera_pose = camera_pose_msg->pose[i];
+      _camera_transform=poseMsg2eigen(camera_pose);
+      break;
+    }
+  }
+}
+
+void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
+                                        const sensor_msgs::Image::ConstPtr &depth_image_msg){
+  if(_got_info && !logical_image_msg->models.empty() && _enabled){
 
     //Extract rgb and depth image from ROS messages
-    cv_bridge::CvImageConstPtr rgb_cv_ptr,depth_cv_ptr;
+    cv_bridge::CvImageConstPtr depth_cv_ptr;
     try{
-      rgb_cv_ptr = cv_bridge::toCvShare(rgb_image_msg);
       depth_cv_ptr = cv_bridge::toCvShare(depth_image_msg);
     } catch (cv_bridge::Exception& e) {
       ROS_ERROR("cv_bridge exception: %s", e.what());
       return;
     }
-    const cv::Mat &rgb_image_ = rgb_cv_ptr->image.clone();
     const cv::Mat &raw_depth_image_ = depth_cv_ptr->image.clone();
-    int rows=rgb_image_.rows;
-    int cols=rgb_image_.cols;
+    int rows=raw_depth_image_.rows;
+    int cols=raw_depth_image_.cols;
 
     //extract point cloud from depth image
     srrg_core::Float3Image directions_image;
@@ -90,12 +113,13 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
     const DetectionVector &detections = _detector.detections();
 
     //get camera pose
-    tf::StampedTransform robot_pose;
-    tf::poseMsgToTF(pose_msg->pose.pose,robot_pose);
-    Eigen::Isometry3f robot_transform = tfTransform2eigen(robot_pose);
-
-    //set globalT to mapper
-    _mapper.setGlobalT(robot_transform*_camera_transform);
+    ros::Time msg_stamp = depth_image_msg->header.stamp;
+    ros::Duration diff = msg_stamp - _last_timestamp;
+    if(diff < ros::Duration(0.01)){
+      std::cerr << "got camera transform";
+      _mapper.setGlobalT(_camera_transform);
+    } else
+      return;
 
     //extract objects from detections
     _mapper.extractObjects(detections,_points_image);
@@ -152,6 +176,20 @@ Eigen::Isometry3f SemanticMapperNode::tfTransform2eigen(const tf::Transform& p){
   q.y()= tq.y();
   q.z()= tq.z();
   q.w()= tq.w();
+  iso.linear()=q.toRotationMatrix();
+  return iso;
+}
+
+Eigen::Isometry3f SemanticMapperNode::poseMsg2eigen(const geometry_msgs::Pose &p){
+  Eigen::Isometry3f iso;
+  iso.translation().x()=p.position.x;
+  iso.translation().y()=p.position.y;
+  iso.translation().z()=p.position.z;
+  Eigen::Quaternionf q;
+  q.x()=p.orientation.x;
+  q.y()=p.orientation.y;
+  q.z()=p.orientation.z;
+  q.w()=p.orientation.w;
   iso.linear()=q.toRotationMatrix();
   return iso;
 }
@@ -226,7 +264,7 @@ void SemanticMapperNode::makeMarkerFromMap(visualization_msgs::Marker & marker, 
   marker.header.frame_id = "/map";
   marker.header.stamp = ros::Time::now();
   marker.ns = "basic_shapes";
-//  marker.id = i;
+  //  marker.id = i;
   marker.type = visualization_msgs::Marker::LINE_LIST;
   marker.action = visualization_msgs::Marker::ADD;
 
@@ -295,6 +333,11 @@ void SemanticMapperNode::makeMarkerFromMap(visualization_msgs::Marker & marker, 
   marker.color.a = 1.0;
 
   marker.lifetime = ros::Duration();
+}
 
-
+void SemanticMapperNode::cmdVelCallback(const geometry_msgs::Twist::ConstPtr &cmd_vel_msg){
+  if(cmd_vel_msg->angular.z < 1e-3 && cmd_vel_msg->linear.x < 1e-3)
+    _enabled = true;
+  else
+    _enabled = false;
 }
