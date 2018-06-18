@@ -56,7 +56,7 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
 
     //compute detections
     _detector.setupDetections();
-    _detector.compute(*depth_points_msg);
+    _detector.compute(depth_points_msg);
     const DetectionVector &detections = _detector.detections();
 
     //get camera pose
@@ -70,7 +70,7 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
       return;
 
     //extract objects from detections
-    _mapper.extractObjects(detections,*depth_points_msg);
+    _mapper.extractObjects(detections,depth_points_msg);
 
     //data association
     _mapper.findAssociations();

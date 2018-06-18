@@ -22,7 +22,7 @@ class SemanticMapper{
 
     //specialized extractObjects method
     void extractObjects(const DetectionVector &detections,
-                        const PointCloud &points);
+                        const PointCloud::ConstPtr &points);
 
     //specialized findAssociations method
     void findAssociations();

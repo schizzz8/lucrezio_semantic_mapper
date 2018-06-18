@@ -22,7 +22,7 @@ SemanticMapper::~SemanticMapper(){
 }
 
 void SemanticMapper::extractObjects(const DetectionVector &detections,
-                                    const PointCloud &points){
+                                    const PointCloud::ConstPtr & points){
 
   //the first message populates the global map, the others populate the local map
   bool populate_global = false;
@@ -36,7 +36,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
 
   std::cerr << std::endl << "[Objects Extraction] " << std::endl;
 
-  size_t w=points.width;
+  size_t w=points->width;
 
   for(int i=0; i < detections.size(); ++i){
 
@@ -62,7 +62,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
 
     for(int i=0; i<num_pixels; ++i){
 
-      Point point = points[pixels[i].y() + w*pixels[i].x()];
+      Point point = points->at(pixels[i].y() + w*pixels[i].x());
 
       if(std::sqrt(point.x*point.x + point.y*point.y + point.z*point.z) < 1e-3)
         continue;

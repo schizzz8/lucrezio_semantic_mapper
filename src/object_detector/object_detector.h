@@ -13,7 +13,7 @@ class ObjectDetector {
     //for each model the 3d bounding box is transformed in the rgbd camera frame
     void setupDetections();
 
-    void compute(const PointCloud &points);
+    void compute(const PointCloud::ConstPtr &points);
 
     //setters and getters
     inline void setModels(const ModelVector &models_){_models = models_;}
