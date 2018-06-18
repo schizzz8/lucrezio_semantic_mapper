@@ -18,6 +18,7 @@ SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
 
   _camera_transform.setIdentity();
   _last_timestamp = ros::Time(0);
+
   //  _camera_transform.translation() = Eigen::Vector3f(0.0,0.0,0.6);
 
   _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
@@ -58,7 +59,7 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
     _detector.compute(*depth_points_msg);
     const DetectionVector &detections = _detector.detections();
 
-    //get camera pose    
+    //get camera pose
     ros::Time msg_stamp;
     pcl_conversions::fromPCL(depth_points_msg->header.stamp,msg_stamp);
     ros::Duration diff = msg_stamp - _last_timestamp;
@@ -78,14 +79,14 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
     _mapper.mergeMaps();
 
     //publish label image
-//    RGBImage label_image;
-//    label_image.create(rows,cols);
-//    label_image=cv::Vec3b(0,0,0);
-//    makeLabelImageFromDetections(label_image,detections);
-//    sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
-//                                                               "bgr8",
-//                                                               label_image).toImageMsg();
-//    _label_image_pub.publish(label_image_msg);
+    RGBImage label_image;
+    label_image.create(depth_points_msg->height,depth_points_msg->width);
+    label_image=cv::Vec3b(0,0,0);
+    makeLabelImageFromDetections(label_image,detections);
+    sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
+                                                               "bgr8",
+                                                               label_image).toImageMsg();
+    _label_image_pub.publish(label_image_msg);
 
     //publish map point cloud
     PointCloud::Ptr cloud_msg (new PointCloud);

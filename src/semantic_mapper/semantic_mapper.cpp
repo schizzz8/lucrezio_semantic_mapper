@@ -62,7 +62,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
 
     for(int i=0; i<num_pixels; ++i){
 
-      Point point = points[pixels[i].x() + w*pixels[i].y()];
+      Point point = points[pixels[i].y() + w*pixels[i].x()];
 
       if(std::sqrt(point.x*point.x + point.y*point.y + point.z*point.z) < 1e-3)
         continue;
