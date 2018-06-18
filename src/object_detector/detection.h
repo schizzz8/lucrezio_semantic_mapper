@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <iomanip>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -16,22 +17,15 @@ class Detection{
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    Detection(){
-      _size=0;
-    }
+    Detection();
 
     Detection(const std::string& type_,
               const Eigen::Vector2i& top_left_,
               const Eigen::Vector2i& bottom_right_,
               const std::vector<Eigen::Vector2i>& pixels_,
-              const Eigen::Vector3i &color_):
-      _type(type_),
-      _top_left(top_left_),
-      _bottom_right(bottom_right_),
-      _pixels(pixels_),
-      _color(color_),
-      _size(0){}
+              const Eigen::Vector3i &color_);
 
+    void setType(const std::string &type);
 
     //setters and getters
     inline const std::string &type() const {return _type;}

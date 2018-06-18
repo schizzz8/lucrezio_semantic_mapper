@@ -7,19 +7,21 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+
+typedef pcl::PointXYZRGB Point;
+typedef pcl::PointCloud<Point> PointCloud;
+
 class Model;
 typedef std::vector<Model> ModelVector;
 
 class Model{
   public:
-    Model(std::string type_ = "",
-          Eigen::Isometry3f pose_ = Eigen::Isometry3f::Identity(),
-          Eigen::Vector3f min_ = Eigen::Vector3f::Zero(),
-          Eigen::Vector3f max_ = Eigen::Vector3f::Zero()):
-      _type(type_),
-      _pose(pose_),
-      _min(min_),
-      _max(max_){}
+    Model(const std::string &type_ = "",
+          const Eigen::Isometry3f &pose_ = Eigen::Isometry3f::Identity(),
+          const Eigen::Vector3f &min_ = Eigen::Vector3f::Zero(),
+          const Eigen::Vector3f &max_ = Eigen::Vector3f::Zero());
 
     const std::string &type() const {return _type;}
     std::string &type() {return _type;}
@@ -32,6 +34,9 @@ class Model{
 
     inline const Eigen::Vector3f &max() const {return _max;}
     inline Eigen::Vector3f &max() {return _max;}
+
+    //check if a point falls in the bounding box
+    bool inRange(const Point &point);
 
   private:
     std::string _type;

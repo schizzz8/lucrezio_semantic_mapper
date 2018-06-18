@@ -1,7 +1,5 @@
 #include "semantic_mapper.h"
 
-using namespace srrg_core;
-
 SemanticMapper::SemanticMapper(){
 
   _local_map = new SemanticMap();
@@ -24,7 +22,7 @@ SemanticMapper::~SemanticMapper(){
 }
 
 void SemanticMapper::extractObjects(const DetectionVector &detections,
-                                    const srrg_core::Float3Image &points_image){
+                                    const PointCloud &points){
 
   //the first message populates the global map, the others populate the local map
   bool populate_global = false;
@@ -37,6 +35,8 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
   }
 
   std::cerr << std::endl << "[Objects Extraction] " << std::endl;
+
+  size_t w=points.width;
 
   for(int i=0; i < detections.size(); ++i){
 
@@ -52,7 +52,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
 
     const std::vector<Eigen::Vector2i> &pixels = detection.pixels();
     int num_pixels = pixels.size();
-    Cloud3D cloud;
+    PointCloud cloud;
     cloud.resize(num_pixels);
     int k=0;
 
@@ -61,30 +61,27 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     Eigen::Vector3f position = Eigen::Vector3f::Zero();
 
     for(int i=0; i<num_pixels; ++i){
-      const cv::Vec3f& cv_point = points_image.at<const cv::Vec3f>(pixels[i].x(), pixels[i].y());
 
-      if(cv::norm(cv_point) < 1e-3)
+      Point point = points[pixels[i].x() + w*pixels[i].y()];
+
+      if(std::sqrt(point.x*point.x + point.y*point.y + point.z*point.z) < 1e-3)
         continue;
 
-      Eigen::Vector3f point(cv_point[0], cv_point[1],cv_point[2]);
-
-      point = _globalT*_fixed_transform*point;
-
-      cloud[k] = RichPoint3D(point,Eigen::Vector3f::Zero(),1.0f);
+      point = pcl::transformPoint(point,_globalT*_fixed_transform);
+      cloud[k] = point;
       k++;
-
-      if(point.x() < min.x())
-        min.x() = point.x();
-      if(point.x() > max.x())
-        max.x() = point.x();
-      if(point.y() < min.y())
-        min.y() = point.y();
-      if(point.y() > max.y())
-        max.y() = point.y();
-      if(point.z() < min.z())
-        min.z() = point.z();
-      if(point.z() > max.z())
-        max.z() = point.z();
+      if(point.x < min.x())
+        min.x() = point.x;
+      if(point.x > max.x())
+        max.x() = point.x;
+      if(point.y < min.y())
+        min.y() = point.y;
+      if(point.y > max.y())
+        max.y() = point.y;
+      if(point.z < min.z())
+        min.z() = point.z;
+      if(point.z > max.z())
+        max.z() = point.z;
     }
 
     //check if object is empty
@@ -92,10 +89,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
       continue;
 
     cloud.resize(k);
-
-
     std::cerr << "WBB: [(" << min.transpose() << "," << max.transpose() << ")]" << std::endl;
-
     position = (min+max)/2.0f;
 
     ObjectPtr obj_ptr = ObjectPtr(new Object(model,position,min,max,color,cloud));

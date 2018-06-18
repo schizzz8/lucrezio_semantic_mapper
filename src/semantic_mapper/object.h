@@ -5,10 +5,16 @@
 #include <vector>
 #include <memory>
 
-#include <srrg_types/cloud_3d.h>
-
 #include <Eigen/Core>
 #include <Eigen/Geometry>
+
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/common/transforms.h>
+#include <pcl/common/norms.h>
+
+typedef pcl::PointXYZRGB Point;
+typedef pcl::PointCloud<Point> PointCloud;
 
 class Object;
 typedef std::shared_ptr<Object> ObjectPtr;
@@ -26,7 +32,7 @@ class Object {
            const Eigen::Vector3f &min_=Eigen::Vector3f::Zero(),
            const Eigen::Vector3f &max_=Eigen::Vector3f::Zero(),
            const Eigen::Vector3f &color_=Eigen::Vector3f::Zero(),
-           const srrg_core::Cloud3D &cloud_=srrg_core::Cloud3D());
+           const PointCloud &cloud_=PointCloud());
 
     //setters and getters
     inline const std::string& model() const {return _model;}
@@ -39,8 +45,8 @@ class Object {
     inline Eigen::Vector3f& max() {return _max;}
     inline const Eigen::Vector3f &color() const {return _color;}
     inline Eigen::Vector3f &color() {return _color;}
-    inline const srrg_core::Cloud3D &cloud() const {return _cloud;}
-    inline srrg_core::Cloud3D &cloud() {return _cloud;}
+    inline const PointCloud &cloud() const {return _cloud;}
+    inline PointCloud &cloud() {return _cloud;}
 
     //merge two objects
     void merge(const ObjectPtr &o);
@@ -61,5 +67,5 @@ class Object {
     Eigen::Vector3f _color;
 
     //object point cloud
-    srrg_core::Cloud3D _cloud;
+    PointCloud _cloud;
 };

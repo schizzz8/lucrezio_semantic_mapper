@@ -1,6 +1,6 @@
 add_library(object_detector_library SHARED
-  detection.h
-  model.h
+  detection.h detection.cpp
+  model.h model.cpp
   object_detector.h object_detector.cpp
 )
 

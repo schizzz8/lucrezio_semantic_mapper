@@ -5,12 +5,6 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 
-#include <srrg_types/types.hpp>
-#include <srrg_image_utils/depth_utils.h>
-#include <srrg_image_utils/point_image_utils.h>
-
-//#include <object_detector/object_detector.h>
-
 #include <object_detector/detection.h>
 
 #include "semantic_map.h"
@@ -28,7 +22,7 @@ class SemanticMapper{
 
     //specialized extractObjects method
     void extractObjects(const DetectionVector &detections,
-                        const srrg_core::Float3Image &points_image);
+                        const PointCloud &points);
 
     //specialized findAssociations method
     void findAssociations();

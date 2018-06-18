@@ -1,30 +1,19 @@
 #include "semantic_mapper_node.h"
 
 using namespace std;
-using namespace srrg_core;
 
 SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
   _nh(nh_),
   _logical_image_sub(_nh,"/gazebo/logical_camera_image",1),
-  _depth_image_sub(_nh,"/camera/depth/image_raw",1),
-//  _rgb_image_sub(_nh,"/camera/rgb/image_raw", 1),
-  //  _pose_sub(_nh,"/amcl_pose",1),
-  //  _synchronizer(FilterSyncPolicy(10),_logical_image_sub,_depth_image_sub,_rgb_image_sub,_pose_sub),
-  _synchronizer(FilterSyncPolicy(10),_logical_image_sub,_depth_image_sub),
+  _depth_points_sub(_nh,"/camera/depth/points",1),
+  _synchronizer(FilterSyncPolicy(10),_logical_image_sub,_depth_points_sub),
   _it(_nh){
-
-  _got_info = false;
-  _camera_info_sub = _nh.subscribe("/camera/depth/camera_info",
-                                   1000,
-                                   &SemanticMapperNode::cameraInfoCallback,
-                                   this);
 
   _camera_pose_sub = _nh.subscribe("/gazebo/link_states",
                                    1000,
                                    &SemanticMapperNode::cameraPoseCallback,
                                    this);
 
-  //  _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2, _3, _4));
   _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2));
 
   _camera_transform.setIdentity();
@@ -43,26 +32,6 @@ SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
   _enabled = true;
 }
 
-void SemanticMapperNode::cameraInfoCallback(const sensor_msgs::CameraInfo::ConstPtr& camera_info_msg){
-  sensor_msgs::CameraInfo camerainfo;
-  camerainfo.K = camera_info_msg->K;
-
-  ROS_INFO("Got camera info!");
-  _K(0,0) = camerainfo.K.c_array()[0];
-  _K(0,1) = camerainfo.K.c_array()[1];
-  _K(0,2) = camerainfo.K.c_array()[2];
-  _K(1,0) = camerainfo.K.c_array()[3];
-  _K(1,1) = camerainfo.K.c_array()[4];
-  _K(1,2) = camerainfo.K.c_array()[5];
-  _K(2,0) = camerainfo.K.c_array()[6];
-  _K(2,1) = camerainfo.K.c_array()[7];
-  _K(2,2) = camerainfo.K.c_array()[8];
-
-  cerr << _K << endl;
-  _got_info = true;
-  _camera_info_sub.shutdown();
-}
-
 void SemanticMapperNode::cameraPoseCallback(const gazebo_msgs::LinkStates::ConstPtr &camera_pose_msg){
   _last_timestamp = ros::Time::now();
 
@@ -77,31 +46,8 @@ void SemanticMapperNode::cameraPoseCallback(const gazebo_msgs::LinkStates::Const
 }
 
 void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
-                                        const sensor_msgs::Image::ConstPtr &depth_image_msg){
-  if(_got_info && !logical_image_msg->models.empty() && _enabled){
-
-    //Extract rgb and depth image from ROS messages
-    cv_bridge::CvImageConstPtr depth_cv_ptr;
-    try{
-      depth_cv_ptr = cv_bridge::toCvShare(depth_image_msg);
-    } catch (cv_bridge::Exception& e) {
-      ROS_ERROR("cv_bridge exception: %s", e.what());
-      return;
-    }
-    const cv::Mat &raw_depth_image_ = depth_cv_ptr->image.clone();
-    int rows=raw_depth_image_.rows;
-    int cols=raw_depth_image_.cols;
-
-    //extract point cloud from depth image
-    srrg_core::Float3Image directions_image;
-    directions_image.create(rows,cols);
-    initializePinholeDirections(directions_image,_K);
-    _points_image.create(rows,cols);
-    computePointsImage(_points_image,
-                       directions_image,
-                       raw_depth_image_,
-                       0.02f,
-                       8.0f);
+                                        const PointCloud::ConstPtr &depth_points_msg){
+  if(!logical_image_msg->models.empty() && _enabled){
 
     //set models
     ModelVector models = logicalImageToModels(logical_image_msg);
@@ -109,11 +55,12 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
 
     //compute detections
     _detector.setupDetections();
-    _detector.compute(_points_image);
+    _detector.compute(*depth_points_msg);
     const DetectionVector &detections = _detector.detections();
 
-    //get camera pose
-    ros::Time msg_stamp = depth_image_msg->header.stamp;
+    //get camera pose    
+    ros::Time msg_stamp;
+    pcl_conversions::fromPCL(depth_points_msg->header.stamp,msg_stamp);
     ros::Duration diff = msg_stamp - _last_timestamp;
     if(diff < ros::Duration(0.01)){
       std::cerr << "got camera transform";
@@ -122,7 +69,7 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
       return;
 
     //extract objects from detections
-    _mapper.extractObjects(detections,_points_image);
+    _mapper.extractObjects(detections,*depth_points_msg);
 
     //data association
     _mapper.findAssociations();
@@ -131,14 +78,14 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
     _mapper.mergeMaps();
 
     //publish label image
-    RGBImage label_image;
-    label_image.create(rows,cols);
-    label_image=cv::Vec3b(0,0,0);
-    makeLabelImageFromDetections(label_image,detections);
-    sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
-                                                               "bgr8",
-                                                               label_image).toImageMsg();
-    _label_image_pub.publish(label_image_msg);
+//    RGBImage label_image;
+//    label_image.create(rows,cols);
+//    label_image=cv::Vec3b(0,0,0);
+//    makeLabelImageFromDetections(label_image,detections);
+//    sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
+//                                                               "bgr8",
+//                                                               label_image).toImageMsg();
+//    _label_image_pub.publish(label_image_msg);
 
     //publish map point cloud
     PointCloud::Ptr cloud_msg (new PointCloud);
@@ -241,19 +188,22 @@ void SemanticMapperNode::makeCloudFromMap(PointCloud::Ptr &cloud, const Semantic
   cloud->height = 1;
   int num_points=0;
   for(int i=0; i < global_map->size(); ++i){
+
     const Eigen::Vector3f &color = global_map->at(i)->color();
-    const srrg_core::Cloud3D &object_cloud = global_map->at(i)->cloud();
+    const PointCloud &object_cloud = global_map->at(i)->cloud();
+
     for(int j=0; j < object_cloud.size(); ++j){
       pcl::PointXYZRGB point;
-      point.x = object_cloud[j].point().x();
-      point.y = object_cloud[j].point().y();
-      point.z = object_cloud[j].point().z();
+      point.x = object_cloud[j].x;
+      point.y = object_cloud[j].y;
+      point.z = object_cloud[j].z;
       point.r = color.z()*255;
       point.g = color.y()*255;
       point.b = color.x()*255;
       cloud->points.push_back(point);
       num_points++;
     }
+
   }
   cloud->width = num_points;
   pcl_conversions::toPCL(ros::Time::now(), cloud->header.stamp);

@@ -13,7 +13,6 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED
-  srrg_core
   cv_bridge
   geometry_msgs
   image_transport
@@ -126,7 +125,6 @@ catkin_package(
   INCLUDE_DIRS src
   LIBRARIES object_detector_library semantic_mapper_library map_evaluator_library semantic_mapper_node_library
   CATKIN_DEPENDS
-    srrg_core
     cv_bridge 
     geometry_msgs 
     image_transport 
