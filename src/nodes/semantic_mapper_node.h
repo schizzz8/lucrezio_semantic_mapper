@@ -29,34 +29,31 @@
 #include <geometry_msgs/Twist.h>
 
 typedef cv::Mat_<cv::Vec3b> RGBImage;
+typedef boost::array<double, 36ul> Array36d;
 
 class SemanticMapperNode{
 
   public:
     SemanticMapperNode(ros::NodeHandle nh_);
 
-    void cameraPoseCallback(const gazebo_msgs::LinkStates::ConstPtr& camera_pose_msg);
-
     void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
-                        const PointCloud::ConstPtr &depth_points_msg);
+                        const PointCloud::ConstPtr &depth_points_msg,
+                        const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &pose_msg);
 
     void evaluateMap();
-
-    void cmdVelCallback(const geometry_msgs::Twist::ConstPtr& cmd_vel_msg);
 
   protected:
     ros::NodeHandle _nh;
 
-    ros::Subscriber _camera_pose_sub;
     Eigen::Isometry3f _camera_transform;
-    ros::Time _last_timestamp;
 
     //synchronized subscriber to rgbd frame and logical_image
     message_filters::Subscriber<lucrezio_simulation_environments::LogicalImage> _logical_image_sub;
     message_filters::Subscriber<PointCloud> _depth_points_sub;
-//    message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> _pose_sub;
+    message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> _pose_sub;
     typedef message_filters::sync_policies::ApproximateTime<lucrezio_simulation_environments::LogicalImage,
-    PointCloud> FilterSyncPolicy;
+    PointCloud,
+    geometry_msgs::PoseWithCovarianceStamped> FilterSyncPolicy;
     message_filters::Synchronizer<FilterSyncPolicy> _synchronizer;
 
     ObjectDetector _detector;
@@ -68,8 +65,6 @@ class SemanticMapperNode{
     image_transport::Publisher _label_image_pub;
     ros::Publisher _cloud_pub;
     ros::Publisher _marker_pub;
-
-    ros::Subscriber _cmd_vel_sub;
 
     bool _enabled;
 

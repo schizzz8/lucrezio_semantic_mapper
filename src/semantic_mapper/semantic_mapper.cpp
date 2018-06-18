@@ -34,8 +34,6 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     _local_set = true;
   }
 
-  std::cerr << std::endl << "[Objects Extraction] " << std::endl;
-
   size_t w=points->width;
 
   for(int i=0; i < detections.size(); ++i){
@@ -46,9 +44,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
       continue;
 
     std::string model = detection.type();
-    std::cerr << model << ": " << std::endl;
     Eigen::Vector3f color = detection.color().cast<float>()/255.0f;
-    std::cerr << "IBB: [(" << detection.topLeft().transpose() << "," << detection.bottomRight().transpose() << ")]" << std::endl;
 
     const std::vector<Eigen::Vector2i> &pixels = detection.pixels();
     int num_pixels = pixels.size();
@@ -89,7 +85,6 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
       continue;
 
     cloud.resize(k);
-    std::cerr << "WBB: [(" << min.transpose() << "," << max.transpose() << ")]" << std::endl;
     position = (min+max)/2.0f;
 
     ObjectPtr obj_ptr = ObjectPtr(new Object(model,position,min,max,color,cloud));
@@ -108,17 +103,11 @@ void SemanticMapper::findAssociations(){
   const int local_size = _local_map->size();
   const int global_size = _global_map->size();
 
-  std::cerr << std::endl << "[Data Association] " << std::endl;
-  std::cerr << "{Local Map size: " << local_size << "} ";
-  std::cerr << "- {Global Map size: " << global_size << "}" << std::endl;
-
   _associations.clear();
 
   for(int i=0; i < global_size; ++i){
     const ObjectPtr &global = (*_global_map)[i];
     const std::string &global_model = global->model();
-
-    std::cerr << "\t>> Global: " << global_model << "(" << global->position().transpose() << ")";
 
     ObjectPtr local_best = nullptr;
     float best_error = std::numeric_limits<float>::max();
@@ -140,12 +129,8 @@ void SemanticMapper::findAssociations(){
       }
     }
 
-    if(!local_best){
-      std::cerr << " - Local: none" << std::endl;
+    if(!local_best)
       continue;
-    }
-
-    std::cerr << " - Local: " << local_best->model() << "(" << local_best->position().transpose() << ")" << std::endl;
     _associations[local_best] = i;
   }
 }
@@ -155,7 +140,6 @@ void SemanticMapper::mergeMaps(){
     return;
 
   int added = 0, merged = 0;
-  std::cerr << std::endl << "[Merging] " << std::endl;
 
   for(int i=0; i<_local_map->size(); ++i){
     const ObjectPtr &local = (*_local_map)[i];
@@ -175,7 +159,4 @@ void SemanticMapper::mergeMaps(){
       added++;
     }
   }
-
-  std::cerr << "merged: " << merged << std::endl;
-  std::cerr << "added: " << added << std::endl;
 }
