@@ -8,7 +8,7 @@ Object::Object(const string &model_,
                const Eigen::Vector3f &min_,
                const Eigen::Vector3f &max_,
                const Eigen::Vector3f &color_,
-               const PointCloud &cloud_):
+               const PointCloud::Ptr & cloud_):
   _model(model_),
   _position(position_),
   _min(min_),
@@ -32,12 +32,14 @@ void Object::merge(const ObjectPtr & o){
 
   _position = (_min+_max)/2.0f;
 
-  _cloud += o->cloud();
+  *_cloud += *o->cloud();
 
-//  _cloud.add(o->cloud());
-//  _cloud.voxelize(0.01f);
+//  pcl::GeneralizedIterativeClosestPoint<Point,Point> gicp;
+//  gicp.setInputSource(o->cloud());
+//  gicp.setInputTarget(_cloud);
+//  PointCloud::Ptr output(new PointCloud());
+//  gicp.align(*output);
 
-//  _cloud = o->cloud();
-
+//  *_cloud += *output;
 }
 

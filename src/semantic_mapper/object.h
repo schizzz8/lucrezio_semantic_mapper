@@ -12,6 +12,7 @@
 #include <pcl/point_types.h>
 #include <pcl/common/transforms.h>
 #include <pcl/common/norms.h>
+#include <pcl/registration/gicp.h>
 
 typedef pcl::PointXYZRGB Point;
 typedef pcl::PointCloud<Point> PointCloud;
@@ -32,7 +33,7 @@ class Object {
            const Eigen::Vector3f &min_=Eigen::Vector3f::Zero(),
            const Eigen::Vector3f &max_=Eigen::Vector3f::Zero(),
            const Eigen::Vector3f &color_=Eigen::Vector3f::Zero(),
-           const PointCloud &cloud_=PointCloud());
+           const PointCloud::Ptr &cloud_=0);
 
     //setters and getters
     inline const std::string& model() const {return _model;}
@@ -45,8 +46,8 @@ class Object {
     inline Eigen::Vector3f& max() {return _max;}
     inline const Eigen::Vector3f &color() const {return _color;}
     inline Eigen::Vector3f &color() {return _color;}
-    inline const PointCloud &cloud() const {return _cloud;}
-    inline PointCloud &cloud() {return _cloud;}
+    inline const PointCloud::Ptr &cloud() const {return _cloud;}
+    inline PointCloud::Ptr &cloud() {return _cloud;}
 
     //merge two objects
     void merge(const ObjectPtr &o);
@@ -67,5 +68,5 @@ class Object {
     Eigen::Vector3f _color;
 
     //object point cloud
-    PointCloud _cloud;
+    PointCloud::Ptr _cloud;
 };

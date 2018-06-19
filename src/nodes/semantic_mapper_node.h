@@ -7,6 +7,7 @@
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_listener.h>
+#include <tf/transform_broadcaster.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
@@ -20,40 +21,46 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/io/pcd_io.h>
+#include <pcl/filters/voxel_grid.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include <gazebo_msgs/LinkStates.h>
 
+#include <gazebo_msgs/GetLinkState.h>
+
 #include <geometry_msgs/Twist.h>
 
 typedef cv::Mat_<cv::Vec3b> RGBImage;
-typedef boost::array<double, 36ul> Array36d;
 
 class SemanticMapperNode{
 
   public:
     SemanticMapperNode(ros::NodeHandle nh_);
 
+    void cameraPoseCallback(const gazebo_msgs::LinkStates::ConstPtr& camera_pose_msg);
+
     void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
-                        const PointCloud::ConstPtr &depth_points_msg,
-                        const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &pose_msg);
+                        const PointCloud::ConstPtr &depth_points_msg);
 
     void evaluateMap();
 
   protected:
     ros::NodeHandle _nh;
 
+    ros::Subscriber _camera_pose_sub;
     Eigen::Isometry3f _camera_transform;
+    ros::Time _last_timestamp;
+
+    ros::ServiceClient _link_state_client;
 
     //synchronized subscriber to rgbd frame and logical_image
     message_filters::Subscriber<lucrezio_simulation_environments::LogicalImage> _logical_image_sub;
     message_filters::Subscriber<PointCloud> _depth_points_sub;
-    message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> _pose_sub;
     typedef message_filters::sync_policies::ApproximateTime<lucrezio_simulation_environments::LogicalImage,
-    PointCloud,
-    geometry_msgs::PoseWithCovarianceStamped> FilterSyncPolicy;
+    PointCloud> FilterSyncPolicy;
     message_filters::Synchronizer<FilterSyncPolicy> _synchronizer;
 
     ObjectDetector _detector;
@@ -66,7 +73,8 @@ class SemanticMapperNode{
     ros::Publisher _cloud_pub;
     ros::Publisher _marker_pub;
 
-    bool _enabled;
+    Eigen::Isometry3f _fixed_transform;
+    PointCloud::Ptr _global_cloud;
 
   private:
     //extract models from logical image msg

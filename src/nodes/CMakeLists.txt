@@ -17,3 +17,11 @@ target_link_libraries(lucrezio_semantic_mapper_node
   semantic_mapper_node_library
   ${catkin_LIBRARIES}
 )
+
+add_executable(pose_broadcaster_node
+  pose_broadcaster_node.cpp
+)
+
+target_link_libraries(pose_broadcaster_node
+  ${catkin_LIBRARIES}
+)

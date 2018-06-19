@@ -51,7 +51,7 @@ void ObjectDetector::compute(const PointCloud::ConstPtr & points){
   size_t w = points->width;
   for(size_t r=0; r<h; ++r)
     for(size_t c=0; c<w; ++c){
-      const Point &point = points->at(c + r*w);
+      const Point &point = points->at(c,r);
       for(size_t i=0; i<_models.size(); ++i){
         if(_models[i].inRange(point)){
 

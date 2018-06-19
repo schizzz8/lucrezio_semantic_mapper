@@ -4,106 +4,136 @@ using namespace std;
 
 SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
   _nh(nh_),
-  _logical_image_sub(_nh,"/gazebo/logical_camera_image",1),
-  _depth_points_sub(_nh,"/camera/depth/points",1),
-  _pose_sub(_nh,"/amcl_pose",1),
-  _synchronizer(FilterSyncPolicy(1000),_logical_image_sub,_depth_points_sub,_pose_sub),
+  _logical_image_sub(_nh,"/gazebo/logical_camera_image",10),
+  _depth_points_sub(_nh,"/camera/depth/points",10),
+  _synchronizer(FilterSyncPolicy(1000),_logical_image_sub,_depth_points_sub),
   _it(_nh){
 
-  _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2, _3));
+  _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2));
 
+  _camera_pose_sub = _nh.subscribe("/gazebo/link_states",
+                                   1000,
+                                   &SemanticMapperNode::cameraPoseCallback,
+                                   this);
   _camera_transform.setIdentity();
-  _camera_transform.translation() = Eigen::Vector3f(0.0,0.0,0.6);
+  _last_timestamp = ros::Time(0);
+
+  _fixed_transform.setIdentity();
+  _fixed_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
+//  _fixed_transform = _fixed_transform.inverse();
+
+  _link_state_client = _nh.serviceClient<gazebo_msgs::GetLinkState>("/gazebo/get_link_state");
 
   _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
   _cloud_pub = _nh.advertise<PointCloud>("visualization_cloud",1);
   _marker_pub = _nh.advertise<visualization_msgs::Marker>("visualization_marker",1);
 
+  _global_cloud = PointCloud::Ptr (new PointCloud());
+}
+
+void SemanticMapperNode::cameraPoseCallback(const gazebo_msgs::LinkStates::ConstPtr &camera_pose_msg){
+//  _last_timestamp = ros::Time::now();
+
+//  const std::vector<std::string> &names = camera_pose_msg->name;
+//  for(size_t i=0; i<names.size(); ++i){
+//    if(names[i].compare("robot::camera_link") == 0){
+//      const geometry_msgs::Pose camera_pose = camera_pose_msg->pose[i];
+//      _camera_transform=poseMsg2eigen(camera_pose);
+//      break;
+//    }
+//  }
 }
 
 void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
-                                        const PointCloud::ConstPtr &depth_points_msg,
-                                        const geometry_msgs::PoseWithCovarianceStamped::ConstPtr &pose_msg){
+                                        const PointCloud::ConstPtr &depth_points_msg){
 
-  //measure pose delay
-  ros::Time cloud_stamp;
-  pcl_conversions::fromPCL(depth_points_msg->header.stamp,cloud_stamp);
-  ros::Duration diff = pose_msg->header.stamp - cloud_stamp;
-
-  ROS_INFO("Pose message delay: %f",diff.toSec());
-
-  //evaluate robot pose covariance
-  Array36d covariance = pose_msg->pose.covariance;
-  Eigen::Vector3d diag(covariance[0],covariance[7],covariance[35]);
-  double diag_norm = diag.norm();
-
-  ROS_INFO("Covariance norm: %f",diag_norm);
-
-//  if(diag_norm >= 0.005)
-//    return;
-
-  double time_0 = (double)cv::getTickCount();
+  ROS_INFO("Logical image stamp: %f", logical_image_msg->header.stamp.toSec());
+  ros::Time msg_stamp;
+  pcl_conversions::fromPCL(depth_points_msg->header.stamp,msg_stamp);
+  ROS_INFO("Point cloud stamp: %f", msg_stamp.toSec());
 
   //get camera pose
-  tf::StampedTransform robot_pose;
-  tf::poseMsgToTF(pose_msg->pose.pose,robot_pose);
-  Eigen::Isometry3f robot_transform = tfTransform2eigen(robot_pose);
+
+//  tf::Transform transform;
+
+//  gazebo_msgs::GetLinkState link_state;
+//  link_state.request.link_name = "robot::base_link";
+//  if(_link_state_client.call(link_state)){
+//    ROS_INFO("Received base_link state!\n");
+////    _camera_transform=poseMsg2eigen(link_state.response.link_state.pose);
+//    tf::poseMsgToTF(link_state.response.link_state.pose,transform);
+//  }else
+//    ROS_ERROR("Failed to call service gazebo/get_model_state");
+
+//  _mapper.setGlobalT(_camera_transform);
 
   //check that the there's at list one object in the robot field-of-view
   if(logical_image_msg->models.empty())
     return;
 
+//  PointCloud::Ptr current_cloud (new PointCloud());
+//  pcl::transformPointCloud(*depth_points_msg,*current_cloud,_camera_transform*_fixed_transform);
+
+//  *_global_cloud += *current_cloud;
+
+//  PointCloud::Ptr cloud_filtered (new PointCloud());
+//  pcl::VoxelGrid<Point> sor;
+//  sor.setInputCloud (_global_cloud);
+//  sor.setLeafSize (0.05f, 0.05f, 0.05f);
+//  sor.filter (*cloud_filtered);
+
+//  cloud_filtered->header.frame_id = "/map";
+//  cloud_filtered->height = 1;
+//  cloud_filtered->width = cloud_filtered->size();
+//  pcl_conversions::toPCL(ros::Time::now(), cloud_filtered->header.stamp);
+
+//  _cloud_pub.publish(cloud_filtered);
+
+//  pcl::io::savePCDFileASCII ("test_pcd.pcd",*cloud_filtered);
+
+  _cloud_pub.publish(depth_points_msg);
+
   //set models
-  ModelVector models = logicalImageToModels(logical_image_msg);
-  _detector.setModels(models);
+//  ModelVector models = logicalImageToModels(logical_image_msg);
+//  _detector.setModels(models);
 
   //compute detections
-  _detector.setupDetections();
-  _detector.compute(depth_points_msg);
-  const DetectionVector &detections = _detector.detections();
-
-  double time_1 = (double)cv::getTickCount();
-
-  ROS_INFO("Compute detections time: %f\n",(time_1 - time_0)/cv::getTickFrequency());
-
-  //set globalT to mapper
-  _mapper.setGlobalT(robot_transform*_camera_transform);
-
+//  _detector.setupDetections();
+//  _detector.compute(depth_points_msg);
+//  const DetectionVector &detections = _detector.detections();
 
   //extract objects from detections
-  _mapper.extractObjects(detections,depth_points_msg);
+//  _mapper.extractObjects(detections,depth_points_msg);
 
   //data association
-  _mapper.findAssociations();
+//  _mapper.findAssociations();
 
   //update
-  _mapper.mergeMaps();
-
-  ROS_INFO("Update map time: %f\n",((double)cv::getTickCount() - time_1)/cv::getTickFrequency());
+//  _mapper.mergeMaps();
 
   //publish label image
-  RGBImage label_image;
-  label_image.create(depth_points_msg->height,depth_points_msg->width);
-  label_image=cv::Vec3b(0,0,0);
-  makeLabelImageFromDetections(label_image,detections);
-  sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
-                                                             "bgr8",
-                                                             label_image).toImageMsg();
-  _label_image_pub.publish(label_image_msg);
+//  RGBImage label_image;
+//  label_image.create(depth_points_msg->height,depth_points_msg->width);
+//  label_image=cv::Vec3b(0,0,0);
+//  makeLabelImageFromDetections(label_image,detections);
+//  sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
+//                                                             "bgr8",
+//                                                             label_image).toImageMsg();
+//  _label_image_pub.publish(label_image_msg);
 
   //publish map point cloud
-  PointCloud::Ptr cloud_msg (new PointCloud);
-  if(_mapper.globalMap()->size()){
-    makeCloudFromMap(cloud_msg,_mapper.globalMap());
-    _cloud_pub.publish (cloud_msg);
-  }
+//  PointCloud::Ptr cloud_msg (new PointCloud);
+//  if(_mapper.globalMap()->size()){
+//    makeCloudFromMap(cloud_msg,_mapper.globalMap());
+//    _cloud_pub.publish (cloud_msg);
+//  }
 
   //publish object bounding boxes
-  visualization_msgs::Marker marker;
-  if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
-    makeMarkerFromMap(marker,_mapper.globalMap());
-    _marker_pub.publish(marker);
-  }
+//  visualization_msgs::Marker marker;
+//  if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
+//    makeMarkerFromMap(marker,_mapper.globalMap());
+//    _marker_pub.publish(marker);
+//  }
 
 }
 
@@ -132,7 +162,7 @@ Eigen::Isometry3f SemanticMapperNode::tfTransform2eigen(const tf::Transform& p){
 }
 
 Eigen::Isometry3f SemanticMapperNode::poseMsg2eigen(const geometry_msgs::Pose &p){
-  Eigen::Isometry3f iso;
+  Eigen::Isometry3f iso = Eigen::Isometry3f::Identity();
   iso.translation().x()=p.position.x;
   iso.translation().y()=p.position.y;
   iso.translation().z()=p.position.z;
@@ -194,13 +224,13 @@ void SemanticMapperNode::makeCloudFromMap(PointCloud::Ptr &cloud, const Semantic
   for(int i=0; i < global_map->size(); ++i){
 
     const Eigen::Vector3f &color = global_map->at(i)->color();
-    const PointCloud &object_cloud = global_map->at(i)->cloud();
+    const PointCloud::Ptr &object_cloud = global_map->at(i)->cloud();
 
-    for(int j=0; j < object_cloud.size(); ++j){
+    for(int j=0; j < object_cloud->size(); ++j){
       pcl::PointXYZRGB point;
-      point.x = object_cloud[j].x;
-      point.y = object_cloud[j].y;
-      point.z = object_cloud[j].z;
+      point.x = object_cloud->at(j).x;
+      point.y = object_cloud->at(j).y;
+      point.z = object_cloud->at(j).z;
       point.r = color.z()*255;
       point.g = color.y()*255;
       point.b = color.x()*255;

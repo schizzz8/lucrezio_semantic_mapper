@@ -48,8 +48,8 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
 
     const std::vector<Eigen::Vector2i> &pixels = detection.pixels();
     int num_pixels = pixels.size();
-    PointCloud cloud;
-    cloud.resize(num_pixels);
+    PointCloud::Ptr cloud (new PointCloud());
+    cloud->resize(num_pixels);
     int k=0;
 
     Eigen::Vector3f min(std::numeric_limits<float>::max(),std::numeric_limits<float>::max(),std::numeric_limits<float>::max());
@@ -58,13 +58,13 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
 
     for(int i=0; i<num_pixels; ++i){
 
-      Point point = points->at(pixels[i].y() + w*pixels[i].x());
+      Point point = points->at(pixels[i].y(),pixels[i].x());
 
       if(std::sqrt(point.x*point.x + point.y*point.y + point.z*point.z) < 1e-3)
         continue;
 
       point = pcl::transformPoint(point,_globalT*_fixed_transform);
-      cloud[k] = point;
+      cloud->at(k) = point;
       k++;
       if(point.x < min.x())
         min.x() = point.x;
@@ -84,7 +84,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     if(!k)
       continue;
 
-    cloud.resize(k);
+    cloud->resize(k);
     position = (min+max)/2.0f;
 
     ObjectPtr obj_ptr = ObjectPtr(new Object(model,position,min,max,color,cloud));
