@@ -4,136 +4,98 @@ using namespace std;
 
 SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
   _nh(nh_),
-  _logical_image_sub(_nh,"/gazebo/logical_camera_image",10),
-  _depth_points_sub(_nh,"/camera/depth/points",10),
+  _logical_image_sub(_nh,"/gazebo/logical_camera_image",1),
+  _depth_points_sub(_nh,"/camera/depth/points",1),
   _synchronizer(FilterSyncPolicy(1000),_logical_image_sub,_depth_points_sub),
   _it(_nh){
 
   _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2));
 
-  _camera_pose_sub = _nh.subscribe("/gazebo/link_states",
-                                   1000,
-                                   &SemanticMapperNode::cameraPoseCallback,
-                                   this);
-  _camera_transform.setIdentity();
-  _last_timestamp = ros::Time(0);
-
   _fixed_transform.setIdentity();
   _fixed_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
-//  _fixed_transform = _fixed_transform.inverse();
-
-  _link_state_client = _nh.serviceClient<gazebo_msgs::GetLinkState>("/gazebo/get_link_state");
 
   _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
   _cloud_pub = _nh.advertise<PointCloud>("visualization_cloud",1);
   _marker_pub = _nh.advertise<visualization_msgs::Marker>("visualization_marker",1);
-
-  _global_cloud = PointCloud::Ptr (new PointCloud());
-}
-
-void SemanticMapperNode::cameraPoseCallback(const gazebo_msgs::LinkStates::ConstPtr &camera_pose_msg){
-//  _last_timestamp = ros::Time::now();
-
-//  const std::vector<std::string> &names = camera_pose_msg->name;
-//  for(size_t i=0; i<names.size(); ++i){
-//    if(names[i].compare("robot::camera_link") == 0){
-//      const geometry_msgs::Pose camera_pose = camera_pose_msg->pose[i];
-//      _camera_transform=poseMsg2eigen(camera_pose);
-//      break;
-//    }
-//  }
 }
 
 void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
                                         const PointCloud::ConstPtr &depth_points_msg){
 
-  ROS_INFO("Logical image stamp: %f", logical_image_msg->header.stamp.toSec());
-  ros::Time msg_stamp;
-  pcl_conversions::fromPCL(depth_points_msg->header.stamp,msg_stamp);
-  ROS_INFO("Point cloud stamp: %f", msg_stamp.toSec());
-
-  //get camera pose
-
-//  tf::Transform transform;
-
-//  gazebo_msgs::GetLinkState link_state;
-//  link_state.request.link_name = "robot::base_link";
-//  if(_link_state_client.call(link_state)){
-//    ROS_INFO("Received base_link state!\n");
-////    _camera_transform=poseMsg2eigen(link_state.response.link_state.pose);
-//    tf::poseMsgToTF(link_state.response.link_state.pose,transform);
-//  }else
-//    ROS_ERROR("Failed to call service gazebo/get_model_state");
-
-//  _mapper.setGlobalT(_camera_transform);
-
   //check that the there's at list one object in the robot field-of-view
   if(logical_image_msg->models.empty())
     return;
 
-//  PointCloud::Ptr current_cloud (new PointCloud());
-//  pcl::transformPointCloud(*depth_points_msg,*current_cloud,_camera_transform*_fixed_transform);
-
-//  *_global_cloud += *current_cloud;
-
-//  PointCloud::Ptr cloud_filtered (new PointCloud());
-//  pcl::VoxelGrid<Point> sor;
-//  sor.setInputCloud (_global_cloud);
-//  sor.setLeafSize (0.05f, 0.05f, 0.05f);
-//  sor.filter (*cloud_filtered);
-
-//  cloud_filtered->header.frame_id = "/map";
-//  cloud_filtered->height = 1;
-//  cloud_filtered->width = cloud_filtered->size();
-//  pcl_conversions::toPCL(ros::Time::now(), cloud_filtered->header.stamp);
-
-//  _cloud_pub.publish(cloud_filtered);
-
-//  pcl::io::savePCDFileASCII ("test_pcd.pcd",*cloud_filtered);
-
-  _cloud_pub.publish(depth_points_msg);
+  //check that delay between messages is below a threshold
+  ROS_INFO("Logical image stamp: %f", logical_image_msg->header.stamp.toSec());
+  ros::Time msg_stamp;
+  pcl_conversions::fromPCL(depth_points_msg->header.stamp,msg_stamp);
+  ROS_INFO("Point cloud stamp: %f", msg_stamp.toSec());
+  ros::Duration stamp_diff = logical_image_msg->header.stamp - msg_stamp;
+  if(std::abs(stamp_diff.toSec()) > 0.03)
+    return;
 
   //set models
-//  ModelVector models = logicalImageToModels(logical_image_msg);
-//  _detector.setModels(models);
+  ModelVector models = logicalImageToModels(logical_image_msg);
+  _detector.setModels(models);
 
   //compute detections
-//  _detector.setupDetections();
-//  _detector.compute(depth_points_msg);
-//  const DetectionVector &detections = _detector.detections();
+  //  _detector.setupDetections();
+  //  _detector.compute(depth_points_msg);
+  //  const DetectionVector &detections = _detector.detections();
+
+  //get camera pose
+  tf::StampedTransform camera_tf;
+  try{
+    _listener.waitForTransform("/map",
+                               "/camera_link",
+                               msg_stamp,
+                               ros::Duration(0.05));
+    _listener.lookupTransform("/map",
+                              "/camera_link",
+                              msg_stamp,
+                              camera_tf);
+  } catch (tf::TransformException ex){
+    ROS_ERROR("%s",ex.what());
+    return;
+  }
+  ROS_INFO("Camera tf timestamp: %f",camera_tf.stamp_.toSec());
+
+  //  tf::Transform transform;
+  //  _mapper.setGlobalT(_camera_transform);
 
   //extract objects from detections
-//  _mapper.extractObjects(detections,depth_points_msg);
+  //  _mapper.extractObjects(detections,depth_points_msg);
 
   //data association
-//  _mapper.findAssociations();
+  //  _mapper.findAssociations();
 
   //update
-//  _mapper.mergeMaps();
+  //  _mapper.mergeMaps();
 
   //publish label image
-//  RGBImage label_image;
-//  label_image.create(depth_points_msg->height,depth_points_msg->width);
-//  label_image=cv::Vec3b(0,0,0);
-//  makeLabelImageFromDetections(label_image,detections);
-//  sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
-//                                                             "bgr8",
-//                                                             label_image).toImageMsg();
-//  _label_image_pub.publish(label_image_msg);
+  //  RGBImage label_image;
+  //  label_image.create(depth_points_msg->height,depth_points_msg->width);
+  //  label_image=cv::Vec3b(0,0,0);
+  //  makeLabelImageFromDetections(label_image,detections);
+  //  sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
+  //                                                             "bgr8",
+  //                                                             label_image).toImageMsg();
+  //  _label_image_pub.publish(label_image_msg);
 
   //publish map point cloud
-//  PointCloud::Ptr cloud_msg (new PointCloud);
-//  if(_mapper.globalMap()->size()){
-//    makeCloudFromMap(cloud_msg,_mapper.globalMap());
-//    _cloud_pub.publish (cloud_msg);
-//  }
+  //  PointCloud::Ptr cloud_msg (new PointCloud);
+  //  if(_mapper.globalMap()->size()){
+  //    makeCloudFromMap(cloud_msg,_mapper.globalMap());
+  //    _cloud_pub.publish (cloud_msg);
+  //  }
 
   //publish object bounding boxes
-//  visualization_msgs::Marker marker;
-//  if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
-//    makeMarkerFromMap(marker,_mapper.globalMap());
-//    _marker_pub.publish(marker);
-//  }
+  //  visualization_msgs::Marker marker;
+  //  if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
+  //    makeMarkerFromMap(marker,_mapper.globalMap());
+  //    _marker_pub.publish(marker);
+  //  }
 
 }
 
