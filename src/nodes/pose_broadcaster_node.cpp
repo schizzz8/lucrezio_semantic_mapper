@@ -36,10 +36,7 @@ public:
 
   void scanCallback(const sensor_msgs::LaserScan::ConstPtr &laser_msg){
 
-//    ROS_INFO("Now: %f",ros::Time::now().toSec());
-
     ros::Time stamp = laser_msg->header.stamp;
-//    ROS_INFO("Laser msg timestamp: %f",stamp.toSec());
 
     tf::StampedTransform camera_tf;
 
@@ -55,7 +52,6 @@ public:
     } catch (tf::TransformException ex){
       ROS_ERROR("%s",ex.what());
     }
-//    ROS_INFO("Camera tf timestamp: %f",camera_tf.stamp_.toSec());
     Eigen::Isometry3f camera_transform = tfTransform2eigen(camera_tf);
 
     tf::Transform odom_to_map_tf = eigen2tfTransform(_camera_transform*camera_transform.inverse());
@@ -124,47 +120,3 @@ int main(int argc, char **argv){
 
   return 0;
 }
-
-//  ros::ServiceClient link_state_client;
-//  link_state_client = nh.serviceClient<gazebo_msgs::GetLinkState>("/gazebo/get_link_state");
-
-//  Eigen::Isometry3f map_camera_transform;
-
-//  tf::TransformBroadcaster br;
-
-//  ros::Rate rate(100);
-//  while(ros::ok()){
-
-//    ros::Time now = ros::Time::now();
-//    try{
-//      odom_listener.waitForTransform("/odom",
-//                                     "/camera_link",
-//                                     now,
-//                                     ros::Duration(0.5));
-//      odom_listener.lookupTransform("/odom",
-//                                    "/camera_link",
-//                                    now,
-//                                    odom_camera_tf);
-//    } catch (tf::TransformException ex){
-//      ROS_ERROR("%s",ex.what());
-//    }
-//    Eigen::Isometry3f odom_camera_transform = tfTransform2eigen(odom_camera_tf);
-
-//    gazebo_msgs::GetLinkState link_state;
-//    link_state.request.link_name = "robot::camera_link";
-//    if(link_state_client.call(link_state)){
-//      ROS_INFO("Received camera_link state!\n");
-//      map_camera_transform=poseMsg2eigen(link_state.response.link_state.pose);
-//    }else
-//      ROS_ERROR("Failed to call service gazebo/get_model_state");
-
-//    tf::Transform transform = eigen2tfTransform(map_camera_transform*odom_camera_transform.inverse());
-
-//    br.sendTransform(tf::StampedTransform(transform, now, "/map", "/odom"));
-
-
-//    ROS_INFO("Broadcasting transform");
-
-//    ros::spinOnce();
-//    rate.sleep();
-//  }
