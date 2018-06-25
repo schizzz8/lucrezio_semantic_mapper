@@ -32,14 +32,13 @@ void Object::merge(const ObjectPtr & o){
 
   _position = (_min+_max)/2.0f;
 
+  //add new points
   *_cloud += *o->cloud();
 
-//  pcl::GeneralizedIterativeClosestPoint<Point,Point> gicp;
-//  gicp.setInputSource(o->cloud());
-//  gicp.setInputTarget(_cloud);
-//  PointCloud::Ptr output(new PointCloud());
-//  gicp.align(*output);
-
-//  *_cloud += *output;
+  //voxelize
+  PointCloud::Ptr cloud_filtered (new PointCloud());
+  _voxelizer.setInputCloud(_cloud);
+  _voxelizer.setLeafSize(0.01f,0.01f,0.01f);
+  _voxelizer.filter(*cloud_filtered);
 }
 

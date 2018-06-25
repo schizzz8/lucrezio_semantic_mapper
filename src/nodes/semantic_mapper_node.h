@@ -46,7 +46,10 @@ class SemanticMapperNode{
     void evaluateMap();
 
   protected:
+
+    //ros stuff
     ros::NodeHandle _nh;
+    ros::Time _last_timestamp;
 
     //synchronized subscriber to rgbd frame and logical_image
     message_filters::Subscriber<lucrezio_simulation_environments::LogicalImage> _logical_image_sub;
@@ -55,8 +58,9 @@ class SemanticMapperNode{
     PointCloud> FilterSyncPolicy;
     message_filters::Synchronizer<FilterSyncPolicy> _synchronizer;
 
-    tf::TransformListener _listener;
+    Eigen::Isometry3f _camera_transform;
 
+    //computing modules
     ObjectDetector _detector;
     SemanticMapper _mapper;
     MapEvaluator _evaluator;
@@ -67,8 +71,6 @@ class SemanticMapperNode{
     ros::Publisher _cloud_pub;
     ros::Publisher _marker_pub;
 
-    Eigen::Isometry3f _fixed_transform;
-
   private:
     //extract models from logical image msg
     ModelVector logicalImageToModels(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg);
@@ -77,7 +79,7 @@ class SemanticMapperNode{
     Eigen::Isometry3f poseMsg2eigen(const geometry_msgs::Pose& p);
     tf::Transform eigen2tfTransform(const Eigen::Isometry3f& T);
 
-    void makeLabelImageFromDetections(RGBImage &label_image, const DetectionVector &detections);
+    void makeLabelImageFromDetections(sensor_msgs::ImagePtr &label_image_msg, const DetectionVector &detections);
 
     void makeCloudFromMap(PointCloud::Ptr &cloud, const SemanticMap *global_map);
 

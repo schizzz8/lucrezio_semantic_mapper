@@ -11,9 +11,6 @@ SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
 
   _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2));
 
-  _fixed_transform.setIdentity();
-  _fixed_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
-
   _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
   _cloud_pub = _nh.advertise<PointCloud>("visualization_cloud",1);
   _marker_pub = _nh.advertise<visualization_msgs::Marker>("visualization_marker",1);
@@ -27,75 +24,57 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
     return;
 
   //check that delay between messages is below a threshold
-  ROS_INFO("Logical image stamp: %f", logical_image_msg->header.stamp.toSec());
-  ros::Time msg_stamp;
-  pcl_conversions::fromPCL(depth_points_msg->header.stamp,msg_stamp);
-  ROS_INFO("Point cloud stamp: %f", msg_stamp.toSec());
-  ros::Duration stamp_diff = logical_image_msg->header.stamp - msg_stamp;
+  ros::Time image_stamp = logical_image_msg->header.stamp;
+//  ROS_INFO("Logical image stamp: %f", image_stamp.toSec());
+  ros::Time depth_stamp;
+  pcl_conversions::fromPCL(depth_points_msg->header.stamp,depth_stamp);
+//  ROS_INFO("Point cloud stamp: %f", depth_stamp.toSec());
+  ros::Duration stamp_diff = image_stamp - depth_stamp;
   if(std::abs(stamp_diff.toSec()) > 0.03)
     return;
+
+  _last_timestamp = image_stamp;
 
   //set models
   ModelVector models = logicalImageToModels(logical_image_msg);
   _detector.setModels(models);
 
   //compute detections
-  //  _detector.setupDetections();
-  //  _detector.compute(depth_points_msg);
-  //  const DetectionVector &detections = _detector.detections();
+  _detector.setupDetections();
+  _detector.compute(depth_points_msg);
+  const DetectionVector &detections = _detector.detections();
 
   //get camera pose
-  tf::StampedTransform camera_tf;
-  try{
-    _listener.waitForTransform("/map",
-                               "/camera_link",
-                               msg_stamp,
-                               ros::Duration(0.05));
-    _listener.lookupTransform("/map",
-                              "/camera_link",
-                              msg_stamp,
-                              camera_tf);
-  } catch (tf::TransformException ex){
-    ROS_ERROR("%s",ex.what());
-    return;
-  }
-  ROS_INFO("Camera tf timestamp: %f",camera_tf.stamp_.toSec());
-
-  //  tf::Transform transform;
-  //  _mapper.setGlobalT(_camera_transform);
+  _camera_transform = poseMsg2eigen(logical_image_msg->pose);
+  _mapper.setGlobalT(_camera_transform);
 
   //extract objects from detections
-  //  _mapper.extractObjects(detections,depth_points_msg);
+  _mapper.extractObjects(detections,depth_points_msg);
 
   //data association
-  //  _mapper.findAssociations();
+  _mapper.findAssociations();
 
   //update
-  //  _mapper.mergeMaps();
+  _mapper.mergeMaps();
 
   //publish label image
-  //  RGBImage label_image;
-  //  label_image.create(depth_points_msg->height,depth_points_msg->width);
-  //  label_image=cv::Vec3b(0,0,0);
-  //  makeLabelImageFromDetections(label_image,detections);
-  //  sensor_msgs::ImagePtr label_image_msg = cv_bridge::CvImage(std_msgs::Header(),
-  //                                                             "bgr8",
-  //                                                             label_image).toImageMsg();
-  //  _label_image_pub.publish(label_image_msg);
+  sensor_msgs::ImagePtr label_image_msg;
+  makeLabelImageFromDetections(label_image_msg,detections);
+  _label_image_pub.publish(label_image_msg);
 
   //publish map point cloud
-  //  PointCloud::Ptr cloud_msg (new PointCloud);
-  //  if(_mapper.globalMap()->size()){
-  //    makeCloudFromMap(cloud_msg,_mapper.globalMap());
-  //    _cloud_pub.publish (cloud_msg);
-  //  }
+  PointCloud::Ptr cloud_msg (new PointCloud);
+  if(_mapper.globalMap()->size()){
+    makeCloudFromMap(cloud_msg,_mapper.globalMap());
+    _cloud_pub.publish (cloud_msg);
+  }
 
   //publish object bounding boxes
-  //  visualization_msgs::Marker marker;
-  //  if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
-  //    makeMarkerFromMap(marker,_mapper.globalMap());
-  //    _marker_pub.publish(marker);
-  //  }
+  visualization_msgs::Marker marker;
+  if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
+    makeMarkerFromMap(marker,_mapper.globalMap());
+    _marker_pub.publish(marker);
+  }
 
 }
 
@@ -166,7 +145,10 @@ ModelVector SemanticMapperNode::logicalImageToModels(const lucrezio_simulation_e
   return models;
 }
 
-void SemanticMapperNode::makeLabelImageFromDetections(RGBImage &label_image, const DetectionVector &detections){
+void SemanticMapperNode::makeLabelImageFromDetections(sensor_msgs::ImagePtr & label_image_msg, const DetectionVector &detections){
+  RGBImage label_image;
+  label_image.create(480,640);
+  label_image=cv::Vec3b(0,0,0);
   for(int i=0; i < detections.size(); ++i){
     cv::Vec3b color(detections[i].color().x(),detections[i].color().y(),detections[i].color().z());
     for(int j=0; j < detections[i].pixels().size(); ++j){
@@ -176,6 +158,12 @@ void SemanticMapperNode::makeLabelImageFromDetections(RGBImage &label_image, con
       label_image.at<cv::Vec3b>(r,c) = color;
     }
   }
+  std_msgs::Header header;
+  header.stamp = _last_timestamp;
+  header.frame_id = "camera_depth_optical_frame";
+  label_image_msg = cv_bridge::CvImage(header,
+                                       "bgr8",
+                                       label_image).toImageMsg();
 }
 
 void SemanticMapperNode::makeCloudFromMap(PointCloud::Ptr &cloud, const SemanticMap *global_map){
@@ -202,13 +190,13 @@ void SemanticMapperNode::makeCloudFromMap(PointCloud::Ptr &cloud, const Semantic
 
   }
   cloud->width = num_points;
-  pcl_conversions::toPCL(ros::Time::now(), cloud->header.stamp);
+  pcl_conversions::toPCL(_last_timestamp, cloud->header.stamp);
 
 }
 
 void SemanticMapperNode::makeMarkerFromMap(visualization_msgs::Marker & marker, const SemanticMap *global_map){
   marker.header.frame_id = "/map";
-  marker.header.stamp = ros::Time::now();
+  marker.header.stamp = _last_timestamp;
   marker.ns = "basic_shapes";
   //  marker.id = i;
   marker.type = visualization_msgs::Marker::LINE_LIST;

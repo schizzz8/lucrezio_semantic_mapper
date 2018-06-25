@@ -12,7 +12,7 @@
 #include <pcl/point_types.h>
 #include <pcl/common/transforms.h>
 #include <pcl/common/norms.h>
-#include <pcl/registration/gicp.h>
+#include <pcl/filters/voxel_grid.h>
 
 typedef pcl::PointXYZRGB Point;
 typedef pcl::PointCloud<Point> PointCloud;
@@ -69,4 +69,6 @@ class Object {
 
     //object point cloud
     PointCloud::Ptr _cloud;
+
+    pcl::VoxelGrid<Point> _voxelizer;
 };

@@ -19,54 +19,8 @@ public:
     _logical_image_sub(_nh,"/gazebo/logical_camera_image",1),
     _scan_sub(_nh,"/scan",1),
     _synchronizer(FilterSyncPolicy(1000),_logical_image_sub,_scan_sub){
-
-//    _camera_pose_sub = _nh.subscribe("/gazebo/link_states",
-//                                     1000,
-//                                     &PoseBroadcaster::cameraPoseCallback,
-//                                     this);
-
-//    _scan_sub = _nh.subscribe("/scan",
-//                              1000,
-//                              &PoseBroadcaster::scanCallback,
-//                              this);
-
     _synchronizer.registerCallback(boost::bind(&PoseBroadcaster::filterCallback, this, _1, _2));
   }
-
-//  void cameraPoseCallback(const gazebo_msgs::LinkStates::ConstPtr& camera_pose_msg){
-//    const std::vector<std::string> &names = camera_pose_msg->name;
-//    for(size_t i=0; i<names.size(); ++i){
-//      if(names[i].compare("robot::camera_link") == 0){
-//        const geometry_msgs::Pose camera_pose = camera_pose_msg->pose[i];
-//        _camera_transform=poseMsg2eigen(camera_pose);
-//        break;
-//      }
-//    }
-//  }
-
-//  void scanCallback(const sensor_msgs::LaserScan::ConstPtr &laser_msg){
-
-//    ros::Time stamp = laser_msg->header.stamp;
-
-//    tf::StampedTransform camera_tf;
-
-//    try{
-//      _listener.waitForTransform("/odom",
-//                                 "/camera_link",
-//                                 stamp,
-//                                 ros::Duration(0.5));
-//      _listener.lookupTransform("/odom",
-//                                "/camera_link",
-//                                stamp,
-//                                camera_tf);
-//    } catch (tf::TransformException ex){
-//      ROS_ERROR("%s",ex.what());
-//    }
-//    Eigen::Isometry3f camera_transform = tfTransform2eigen(camera_tf);
-
-//    tf::Transform odom_to_map_tf = eigen2tfTransform(_camera_transform*camera_transform.inverse());
-//    _br.sendTransform(tf::StampedTransform(odom_to_map_tf, stamp, "/map", "/odom"));
-//  }
 
   void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
                       const sensor_msgs::LaserScan::ConstPtr &laser_msg){
@@ -141,9 +95,6 @@ protected:
 
   tf::TransformBroadcaster _br;
 
-//  ros::Subscriber _scan_sub;
-
-//  ros::Subscriber _camera_pose_sub;
   Eigen::Isometry3f _camera_transform;
 
   message_filters::Subscriber<lucrezio_simulation_environments::LogicalImage> _logical_image_sub;
