@@ -5,6 +5,7 @@ add_library(semantic_mapper_library SHARED
 )
 
 target_link_libraries(semantic_mapper_library
+  utils_library
   object_detector_library
   ${OpenCV_LIBS}
   ${catkin_LIBRARIES}

@@ -46,9 +46,10 @@ public:
     tf::Transform odom_map_tf = eigen2tfTransform(camera_map_transform*camera_odom_transform.inverse());
     _br.sendTransform(tf::StampedTransform(odom_map_tf, image_stamp, "/map", "/odom"));
 
-    ROS_INFO("Laser msg stamp: %f", laser_stamp.toSec());
-    ROS_INFO("Logical image stamp: %f", image_stamp.toSec());
-    ROS_INFO("...");
+//    ROS_INFO("Laser msg stamp: %f", laser_stamp.toSec());
+//    ROS_INFO("Logical image stamp: %f", image_stamp.toSec());
+//    ROS_INFO("...");
+    std::cerr << ".";
   }
 
   Eigen::Isometry3f tfTransform2eigen(const tf::Transform& p){

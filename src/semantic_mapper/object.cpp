@@ -38,7 +38,7 @@ void Object::merge(const ObjectPtr & o){
   //voxelize
   PointCloud::Ptr cloud_filtered (new PointCloud());
   _voxelizer.setInputCloud(_cloud);
-  _voxelizer.setLeafSize(0.01f,0.01f,0.01f);
+  _voxelizer.setLeafSize(0.05f,0.05f,0.05f);
   _voxelizer.filter(*cloud_filtered);
 }
 
