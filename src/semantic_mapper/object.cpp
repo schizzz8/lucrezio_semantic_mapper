@@ -16,6 +16,14 @@ Object::Object(const string &model_,
   _color(color_),
   _cloud(cloud_){}
 
+bool Object::operator <(const Object &o) const{
+  return (_model.compare(o.model()) < 0);
+}
+
+bool Object::operator ==(const Object &o) const{
+  return (_model.compare(o.model()) == 0);
+}
+
 void Object::merge(const ObjectPtr & o){
   if(o->min().x() < _min.x())
     _min.x() = o->min().x();

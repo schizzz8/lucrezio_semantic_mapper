@@ -21,6 +21,7 @@ class Object;
 typedef std::shared_ptr<Object> ObjectPtr;
 typedef std::vector<ObjectPtr> ObjectPtrVector;
 typedef std::map<ObjectPtr,int> ObjectPtrIdMap;
+typedef std::set<Object> ObjectSet;
 
 //this class is a container for a 3d object that composes the semantic map
 class Object {
@@ -34,6 +35,11 @@ class Object {
            const Eigen::Vector3f &max_=Eigen::Vector3f::Zero(),
            const Eigen::Vector3f &color_=Eigen::Vector3f::Zero(),
            const PointCloud::Ptr &cloud_=0);
+
+
+    bool operator < (const Object &o) const;
+    bool operator == (const Object &o) const;
+
 
     //setters and getters
     inline const std::string& model() const {return _model;}
