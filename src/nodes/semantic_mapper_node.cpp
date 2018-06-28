@@ -11,6 +11,8 @@ SemanticMapperNode::SemanticMapperNode(ros::NodeHandle nh_):
 
   _synchronizer.registerCallback(boost::bind(&SemanticMapperNode::filterCallback, this, _1, _2));
 
+  _sm_pub = _nh.advertise<lucrezio_semantic_mapper::SemanticMap>("/semantic_map",1);
+
   _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
   _cloud_pub = _nh.advertise<PointCloud>("visualization_cloud",1);
   _marker_pub = _nh.advertise<visualization_msgs::Marker>("visualization_marker",1);
@@ -25,10 +27,8 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
 
   //check that delay between messages is below a threshold
   ros::Time image_stamp = logical_image_msg->header.stamp;
-//  ROS_INFO("Logical image stamp: %f", image_stamp.toSec());
   ros::Time depth_stamp;
   pcl_conversions::fromPCL(depth_points_msg->header.stamp,depth_stamp);
-//  ROS_INFO("Point cloud stamp: %f", depth_stamp.toSec());
   ros::Duration stamp_diff = image_stamp - depth_stamp;
   if(std::abs(stamp_diff.toSec()) > 0.03)
     return;
@@ -57,21 +57,28 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
   //update
   _mapper.mergeMaps();
 
+  //publish semantic map message
+  if(_mapper.globalMap()->size()){
+    lucrezio_semantic_mapper::SemanticMap sm_msg;
+    makeMsgFromMap(sm_msg,_mapper.globalMap());
+    _sm_pub.publish(sm_msg);
+  }
+
   //publish label image
   sensor_msgs::ImagePtr label_image_msg;
   makeLabelImageFromDetections(label_image_msg,detections);
   _label_image_pub.publish(label_image_msg);
 
   //publish map point cloud
-  PointCloud::Ptr cloud_msg (new PointCloud);
   if(_mapper.globalMap()->size()){
+    PointCloud::Ptr cloud_msg (new PointCloud);
     makeCloudFromMap(cloud_msg,_mapper.globalMap());
     _cloud_pub.publish (cloud_msg);
   }
 
   //publish object bounding boxes
-  visualization_msgs::Marker marker;
   if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
+    visualization_msgs::Marker marker;
     makeMarkerFromMap(marker,_mapper.globalMap());
     _marker_pub.publish(marker);
   }
@@ -143,6 +150,20 @@ ModelVector SemanticMapperNode::logicalImageToModels(const lucrezio_simulation_e
   }
 
   return models;
+}
+
+void SemanticMapperNode::makeMsgFromMap(lucrezio_semantic_mapper::SemanticMap &sm_msg, const SemanticMap *global_map){
+  sm_msg.header.stamp = _last_timestamp;
+  sm_msg.header.frame_id = "/map";
+  for(int i=0; i<global_map->size(); ++i){
+    const ObjectPtr& obj = global_map->at(i);
+    lucrezio_semantic_mapper::Object o;
+    o.type = obj->model();
+    o.position.x = obj->position().x();
+    o.position.y = obj->position().y();
+    o.position.z = obj->position().z();
+    sm_msg.objects.push_back(o);
+  }
 }
 
 void SemanticMapperNode::makeLabelImageFromDetections(sensor_msgs::ImagePtr & label_image_msg, const DetectionVector &detections){

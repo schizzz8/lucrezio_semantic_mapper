@@ -17,21 +17,12 @@
 #include <semantic_mapper/semantic_mapper.h>
 #include <map_evaluator/map_evaluator.h>
 
+#include <lucrezio_semantic_mapper/SemanticMap.h>
+
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl/io/pcd_io.h>
-#include <pcl/filters/voxel_grid.h>
 
 #include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
-
-#include <gazebo_msgs/LinkStates.h>
-
-#include <gazebo_msgs/GetLinkState.h>
-
-#include <geometry_msgs/Twist.h>
 
 typedef cv::Mat_<cv::Vec3b> RGBImage;
 
@@ -65,6 +56,9 @@ class SemanticMapperNode{
     SemanticMapper _mapper;
     MapEvaluator _evaluator;
 
+    //semantic map publisher
+    ros::Publisher _sm_pub;
+
     //publisher for the label image (visualization only)
     image_transport::ImageTransport _it;
     image_transport::Publisher _label_image_pub;
@@ -78,6 +72,8 @@ class SemanticMapperNode{
     Eigen::Isometry3f tfTransform2eigen(const tf::Transform& p);
     Eigen::Isometry3f poseMsg2eigen(const geometry_msgs::Pose& p);
     tf::Transform eigen2tfTransform(const Eigen::Isometry3f& T);
+
+    void makeMsgFromMap(lucrezio_semantic_mapper::SemanticMap &sm_msg, const SemanticMap *global_map);
 
     void makeLabelImageFromDetections(sensor_msgs::ImagePtr &label_image_msg, const DetectionVector &detections);
 
