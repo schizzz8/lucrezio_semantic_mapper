@@ -13,6 +13,9 @@
 #include <pcl/common/transforms.h>
 #include <pcl/common/norms.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/io/pcd_io.h>
+
+#include <yaml-cpp/yaml.h>
 
 typedef pcl::PointXYZRGB Point;
 typedef pcl::PointCloud<Point> PointCloud;
@@ -22,15 +25,22 @@ typedef std::shared_ptr<Object> ObjectPtr;
 typedef std::vector<ObjectPtr> ObjectPtrVector;
 typedef std::map<ObjectPtr,int> ObjectPtrIdMap;
 typedef std::set<Object> ObjectSet;
+typedef std::map<std::string,Object> ObjectStringMap;
+
+class GtObject;
+typedef std::map<std::string,GtObject> GtObjectStringMap;
+
 
 //this class is a container for a 3d object that composes the semantic map
 class Object {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    //constructor
-    Object(const std::string &model_="",
-           const Eigen::Vector3f &position_=Eigen::Vector3f::Identity(),
+    //constructors
+    Object();
+
+    Object(const std::string &model_,
+           const Eigen::Vector3f &position_,
            const Eigen::Vector3f &min_=Eigen::Vector3f::Zero(),
            const Eigen::Vector3f &max_=Eigen::Vector3f::Zero(),
            const Eigen::Vector3f &color_=Eigen::Vector3f::Zero(),
@@ -78,3 +88,25 @@ class Object {
 
     pcl::VoxelGrid<Point> _voxelizer;
 };
+
+class GtObject{
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
+  GtObject(const std::string& model_="",
+        const Eigen::Vector3f& position_ = Eigen::Vector3f::Zero(),
+        const Eigen::Vector3f& orientation_ = Eigen::Vector3f::Zero()):
+    _model(model_),
+    _position(position_),
+    _orientation(orientation_){}
+  inline const std::string& model() const {return _model;}
+  inline std::string& model() {return _model;}
+  inline const Eigen::Vector3f& position() const {return _position;}
+  inline Eigen::Vector3f& position() {return _position;}
+  inline const Eigen::Vector3f& orientation() const {return _orientation;}
+  inline Eigen::Vector3f& orientation() {return _orientation;}
+protected:
+  std::string _model;
+  Eigen::Vector3f _position;
+  Eigen::Vector3f _orientation;
+};
+

@@ -64,6 +64,11 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
         continue;
 
       point = pcl::transformPoint(point,_globalT*_fixed_transform);
+
+      point.r = color.z()*255;
+      point.g = color.y()*255;
+      point.b = color.x()*255;
+
       cloud->at(k) = point;
       k++;
       if(point.x < min.x())

@@ -25,3 +25,12 @@ add_executable(pose_broadcaster_node
 target_link_libraries(pose_broadcaster_node
   ${catkin_LIBRARIES}
 )
+
+add_executable(map_evaluator_node
+  map_evaluator_node.cpp
+)
+
+target_link_libraries(map_evaluator_node
+  map_evaluator_library
+  ${catkin_LIBRARIES}
+)
