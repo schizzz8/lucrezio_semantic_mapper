@@ -33,6 +33,8 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
   if(std::abs(stamp_diff.toSec()) > 0.03)
     return;
 
+  std::cerr << ".";
+
   _last_timestamp = image_stamp;
 
   //set models
@@ -88,10 +90,14 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
 void SemanticMapperNode::evaluateMap(){
   std::cerr << std::endl;
   std::string path = ros::package::getPath("lucrezio_simulation_environments");
+  std::cerr << "a";
   _evaluator.setReference(path+"/config/envs/test_apartment_2/object_locations.yaml");
+  std::cerr << "b";
   _evaluator.setCurrent(_mapper.globalMap());
 
   _evaluator.compute();
+
+  _evaluator.storeMap(_mapper.globalMap());
 }
 
 Eigen::Isometry3f SemanticMapperNode::tfTransform2eigen(const tf::Transform& p){
