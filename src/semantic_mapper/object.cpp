@@ -73,7 +73,6 @@ namespace YAML {
       return true;
     }
   };
-
 }
 
 using namespace std;
