@@ -34,3 +34,12 @@ target_link_libraries(map_evaluator_node
   map_evaluator_library
   ${catkin_LIBRARIES}
 )
+
+add_executable(data_dumper_node
+  data_dumper_node.cpp
+)
+
+target_link_libraries(data_dumper_node
+  semantic_mapper_node_library
+  ${catkin_LIBRARIES}
+)

@@ -27,6 +27,14 @@ int main(int argc, char** argv){
     viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, obj.model());
   }
 
+//  pcl::ModelCoefficients coeffs;
+//  coeffs.values.resize(4);
+//  coeffs.values[0] = 0;
+//  coeffs.values[1] = 0;
+//  coeffs.values[2] = 1;
+//  coeffs.values[3] = 0;
+//  viewer->addPlane(coeffs);
+
   //load ground truth
   pcl::PolygonMesh mesh;
   pcl::io::loadPolygonFileOBJ(argv[2],mesh);
