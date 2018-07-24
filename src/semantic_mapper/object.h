@@ -14,11 +14,17 @@
 #include <pcl/common/norms.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/octree/octree_pointcloud_voxelcentroid.h>
+#include <pcl/octree/octree_impl.h>
+#include <pcl/octree/octree_search.h>
+#include <pcl/common/centroid.h>
+
 
 #include <yaml-cpp/yaml.h>
 
 typedef pcl::PointXYZRGB Point;
 typedef pcl::PointCloud<Point> PointCloud;
+typedef pcl::octree::OctreePointCloudSearch<Point> Octree;
 
 class Object;
 typedef std::shared_ptr<Object> ObjectPtr;
@@ -65,8 +71,17 @@ class Object {
     inline const PointCloud::Ptr &cloud() const {return _cloud;}
     inline PointCloud::Ptr &cloud() {return _cloud;}
 
+    inline const PointCloud::Ptr &unnVoxelCloud() const {return _unn_voxel_cloud;}
+    inline const PointCloud::Ptr &freVoxelCloud() const {return _fre_voxel_cloud;}
+    inline const PointCloud::Ptr &occVoxelCloud() const {return _occ_voxel_cloud;}
+
+    inline const float s() const {return _s;}
+
     //merge two objects
     void merge(const ObjectPtr &o);
+
+    //compute occupancy
+    void computeOccupancy(const Eigen::Isometry3f& T);
 
   private:
 
@@ -87,6 +102,15 @@ class Object {
     PointCloud::Ptr _cloud;
 
     pcl::VoxelGrid<Point> _voxelizer;
+
+    Octree::Ptr _octree;
+
+    float _resolution;
+    float _s;
+
+    PointCloud::Ptr _occ_voxel_cloud;
+    PointCloud::Ptr _fre_voxel_cloud;
+    PointCloud::Ptr _unn_voxel_cloud;
 };
 
 class GtObject{
