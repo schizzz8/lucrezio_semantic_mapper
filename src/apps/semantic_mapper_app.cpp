@@ -4,8 +4,30 @@
 #include <object_detector/object_detector.h>
 #include <semantic_mapper/semantic_mapper.h>
 
+#include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/common/transforms.h>
+
+typedef pcl::visualization::PCLVisualizer Visualizer;
+
+typedef Eigen::Matrix<float, 7, 1> Vector7f;
+Vector7f t2vFull(const Eigen::Isometry3f& iso){
+  Vector7f v;
+  v.head<3>() = iso.translation();
+  Eigen::Quaternionf q(iso.linear());
+  v(3) = q.x();
+  v(4) = q.y();
+  v(5) = q.z();
+  v(6) = q.w();
+  return v;
+}
+
+
+bool spin=true;
+
 void deserializeTransform(const char * filename, Eigen::Isometry3f &transform);
 void deserializeModels(const char * filename, ModelVector & models);
+
+void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void* viewer_void);
 
 int main(int argc, char** argv){
 
@@ -22,46 +44,82 @@ int main(int argc, char** argv){
       0.0, 554.25, 240.5,
       0.0,    0.0,   1.0;
 
+  //camera offset
+  Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
+  camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
+
+  PointCloud::Ptr transformed_cloud (new PointCloud ());
+
   std::string line;
   std::ifstream data(argv[1]);
 
-  bool first = true;
+  Visualizer::Ptr viewer (new Visualizer ("Viewer"));
+  viewer->setBackgroundColor (0, 0, 0);
+  viewer->addCoordinateSystem(0.25);
+  viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
+  viewer->initCameraParameters ();
+
+  bool first=true;
+
   if(data.is_open()){
-    while(std::getline(data,line) && first){
+    while(!viewer->wasStopped()){
 
-      std::istringstream iss(line);
-      double timestamp;
-      std::string cloud_filename,transform_filename,models_filename;
-      iss>>timestamp>>cloud_filename>>transform_filename>>models_filename;
+      if(spin && std::getline(data,line)){
 
-      //read cloud
-      pcl::io::loadPCDFile<Point> ("test_pcd.pcd", *cloud);
+        // Clear the viewer
+        viewer->removeAllShapes();
+        viewer->removeAllPointClouds();
 
-      //read camera transform
-      deserializeTransform(transform_filename.c_str(),camera_transform);
-      mapper.setGlobalT(camera_transform);
+        std::istringstream iss(line);
 
-      //read models
-      deserializeModels(models_filename.c_str(),models);
-      detector.setModels(models);
+        double timestamp;
+        std::string cloud_filename,transform_filename,models_filename;
+        iss>>timestamp>>cloud_filename>>transform_filename>>models_filename;
 
-      //compute detections
-      detector.setupDetections();
-      detector.compute(cloud);
-      const DetectionVector &detections = detector.detections();
+        //read camera transform
+        deserializeTransform(transform_filename.c_str(),camera_transform);
+        std::cerr << "Camera transform: " << t2vFull(camera_transform).transpose() << std::endl;
+        viewer->addCoordinateSystem(0.5,camera_transform,"camera_transform");
+        mapper.setGlobalT(camera_transform);
+        detector.setCameraTransform(camera_transform);
 
-      //extract objects from detections
-      mapper.extractObjects(detections,cloud);
+        //read cloud
+        pcl::io::loadPCDFile<Point> (cloud_filename, *cloud);
+        std::cerr << "Loading cloud: " << cloud_filename << std::endl;
+        pcl::transformPointCloud (*cloud, *transformed_cloud, camera_transform*camera_offset);
+        pcl::visualization::PointCloudColorHandlerRGBField<Point> rgb(transformed_cloud);
+        viewer->addPointCloud<Point> (transformed_cloud, rgb, cloud_filename);
+        viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, cloud_filename);
+        detector.setInputCloud(cloud);
 
-      //data association
-      mapper.findAssociations();
+        //read models
+        deserializeModels(models_filename.c_str(),models);
+        detector.setModels(models);
+        detector.setupDetections();
+        for(const Model& m : detector.models())
+          viewer->addCube(m.min().x(),m.max().x(),m.min().y(),m.max().y(),m.min().z(),m.max().z(),0.0,0.0,1.0,m.type());
 
-      //update
-      mapper.mergeMaps();
+        //compute detections
+        //      detector.compute();
+        //      const DetectionVector &detections = detector.detections();
 
+        //extract objects from detections
+        //      mapper.extractObjects(detections,cloud);
 
+        //data association
+        //      mapper.findAssociations();
 
+        //update
+        //      mapper.mergeMaps();
 
+        if(first){
+          spin=!spin;
+          first=false;
+        }
+      }
+
+      viewer->spinOnce(100);
+      boost::this_thread::sleep (boost::posix_time::microseconds (100000));
     }
   }
 
@@ -121,4 +179,17 @@ void deserializeModels(const char * filename, ModelVector & models){
   }
 
   fin.close();
+}
+
+void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void* viewer_void){
+  Visualizer::Ptr viewer = *static_cast<Visualizer::Ptr*>(viewer_void);
+  if (event.getKeySym() == "p" && event.keyDown()){
+    spin = !spin;
+    if(spin)
+      std::cerr << "PLAY" << std::endl;
+    else
+      std::cerr << "PAUSE" << std::endl;
+  }
+  //  if (event.getKeySym() == "h" && event.keyDown())
+  //    std::cout << "'h' was pressed" << std::endl;
 }

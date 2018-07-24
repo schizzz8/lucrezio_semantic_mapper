@@ -37,13 +37,13 @@ void SemanticMapperNode::filterCallback(const lucrezio_simulation_environments::
 
   _last_timestamp = image_stamp;
 
-  //set models
+  //set input data
   ModelVector models = logicalImageToModels(logical_image_msg);
   _detector.setModels(models);
+  _detector.setInputCloud(depth_points_msg);
 
-  //compute detections
   _detector.setupDetections();
-  _detector.compute(depth_points_msg);
+  _detector.compute();
   const DetectionVector &detections = _detector.detections();
 
   //get camera pose

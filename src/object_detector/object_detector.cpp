@@ -4,11 +4,14 @@
 
 ObjectDetector::ObjectDetector(){
   _fixed_transform.setIdentity();
-  _fixed_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
+//  _fixed_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
+  _fixed_transform.translation() = Eigen::Vector3f(0.0,0.0,0.6);
   _fixed_transform = _fixed_transform.inverse();
 }
 
 void ObjectDetector::setupDetections(){
+  if(_models.empty())
+    return;
 
   //initialize detection vector
   _detections.clear();
@@ -19,8 +22,8 @@ void ObjectDetector::setupDetections(){
   for(int i=0; i<_models.size(); ++i){
 
     //compute model bounding box in camera frame
-    points[0] = _fixed_transform*_models[i].pose()*_models[i].min();
-    points[1] = _fixed_transform*_models[i].pose()*_models[i].max();
+    points[0] = _camera_transform*_models[i].pose()*_models[i].min();
+    points[1] = _camera_transform*_models[i].pose()*_models[i].max();
 
     float x_min=100000,x_max=-100000,y_min=100000,y_max=-100000,z_min=100000,z_max=-100000;
     for(int i=0; i < 2; ++i){
@@ -37,21 +40,28 @@ void ObjectDetector::setupDetections(){
       if(points[i].z()>z_max)
         z_max = points[i].z();
     }
-    _models[i].min() = Eigen::Vector3f(x_min,y_min,z_min);
-    _models[i].max() = Eigen::Vector3f(x_max,y_max,z_max);
+    Eigen::Vector3f min(x_min,y_min,z_min);
+    Eigen::Vector3f max(x_max,y_max,z_max);
+    _models[i].min() = min;
+    _models[i].max() = max;
 
     //set detection type
     std::string type = _models[i].type();
     _detections[i].setType(type);
   }
+
 }
 
-void ObjectDetector::compute(const PointCloud::ConstPtr & points){
-  size_t h = points->height;
-  size_t w = points->width;
+void ObjectDetector::compute(){
+
+  if(_cloud->points.empty())
+    return;
+
+  size_t h = _cloud->height;
+  size_t w = _cloud->width;
   for(size_t r=0; r<h; ++r)
     for(size_t c=0; c<w; ++c){
-      const Point &point = points->at(c,r);
+      const Point &point = _cloud->at(c,r);
       for(size_t i=0; i<_models.size(); ++i){
         if(_models[i].inRange(point)){
 

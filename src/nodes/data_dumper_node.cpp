@@ -31,148 +31,173 @@ typedef std::vector<lucrezio_simulation_environments::Model> Models;
 
 class DataDumperNode{
 
-  public:
-    DataDumperNode(ros::NodeHandle nh_,const std::string& filename):
-      _nh(nh_),
-      _logical_image_sub(_nh,"/gazebo/logical_camera_image",1),
-      _depth_points_sub(_nh,"/camera/depth/points",1),
-      _synchronizer(FilterSyncPolicy(1000),_logical_image_sub,_depth_points_sub){
+public:
+  DataDumperNode(ros::NodeHandle nh_,const std::string& filename):
+    _nh(nh_),
+    _logical_image_sub(_nh,"/gazebo/logical_camera_image",1),
+    _depth_points_sub(_nh,"/camera/depth/points",1),
+    _synchronizer(FilterSyncPolicy(1000),_logical_image_sub,_depth_points_sub){
 
-      _synchronizer.registerCallback(boost::bind(&DataDumperNode::filterCallback, this, _1, _2));
-      _out.open(filename);
-      _seq=0;
-    }
+    _synchronizer.registerCallback(boost::bind(&DataDumperNode::filterCallback, this, _1, _2));
+    _out.open(filename);
+    _seq=0;
 
-    void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
-                        const PointCloud::ConstPtr &depth_points_msg){
+    ROS_INFO("Starting data dumper node...");
+  }
 
-      //check that the there's at list one object in the robot field-of-view
-      if(logical_image_msg->models.empty())
-        return;
+  void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
+                      const PointCloud::ConstPtr &depth_points_msg){
 
-      //check that delay between messages is below a threshold
-      ros::Time image_stamp = logical_image_msg->header.stamp;
-      ros::Time depth_stamp;
-      pcl_conversions::fromPCL(depth_points_msg->header.stamp,depth_stamp);
-      ros::Duration stamp_diff = image_stamp - depth_stamp;
-      if(std::abs(stamp_diff.toSec()) > 0.03)
-        return;
+    //check that the there's at list one object in the robot field-of-view
+    if(logical_image_msg->models.empty())
+      return;
 
-      _last_timestamp = image_stamp;
+    //check that delay between messages is below a threshold
+    ros::Time image_stamp = logical_image_msg->header.stamp;
+    ros::Time depth_stamp;
+    pcl_conversions::fromPCL(depth_points_msg->header.stamp,depth_stamp);
+    ros::Duration stamp_diff = image_stamp - depth_stamp;
+    if(std::abs(stamp_diff.toSec()) > 0.03)
+      return;
 
-      // save point cloud
-      char cloud_filename[80];
-      sprintf(cloud_filename,"cloud_%lu.png",_seq);
-      pcl::io::savePCDFileASCII (cloud_filename, *depth_points_msg);
+    _last_timestamp = image_stamp;
 
-      // save camera pose
-      Eigen::Isometry3f camera_transform = poseMsg2eigen(logical_image_msg->pose);
-      char transform_filename[80];
-      sprintf(transform_filename,"rgbd_pose_%lu.txt",_seq);
-      serializeTransform(transform_filename,camera_transform);
+    // save point cloud
+    char cloud_filename[80];
+    sprintf(cloud_filename,"cloud_%lu.png",_seq);
+    pcl::io::savePCDFileASCII (cloud_filename, *depth_points_msg);
 
-      //save models
-      const Models &models=logical_image_msg->models;
-      char models_filename[80];
-      sprintf(models_filename,"models_%lu.txt",_seq);
-      serializeModels(models_filename,models);
+    // save camera pose
+    Eigen::Isometry3f camera_transform = poseMsg2eigen(logical_image_msg->pose);
+    char transform_filename[80];
+    sprintf(transform_filename,"rgbd_pose_%lu.txt",_seq);
+    serializeTransform(transform_filename,camera_transform);
 
-      //write to output file
-      _out << _last_timestamp << " ";
-      _out << cloud_filename << " ";
-      _out << transform_filename << " ";
-      _out << models_filename << std::endl;
+    //save models
+    const Models &models=logical_image_msg->models;
+    char models_filename[80];
+    sprintf(models_filename,"models_%lu.txt",_seq);
+    serializeModels(models_filename,models);
 
-      _seq++;
-      std::cerr << ".";
+    //write to output file
+    _out << _last_timestamp << " ";
+    _out << cloud_filename << " ";
+    _out << transform_filename << " ";
+    _out << models_filename << std::endl;
 
-    }
-    void serializeTransform(char* filename, const Eigen::Isometry3f &transform){
-      std::ofstream data;
-      data.open(filename);
+    _seq++;
+    std::cerr << ".";
 
-      data << transform.translation().x() << " "
-           << transform.translation().y() << " "
-           << transform.translation().z() << " ";
+  }
 
-      const Eigen::Matrix3f rotation = transform.linear().matrix();
-      data << rotation(0,0) << " "
-           << rotation(0,1) << " "
-           << rotation(0,2) << " "
-           << rotation(1,0) << " "
-           << rotation(1,1) << " "
-           << rotation(1,2) << " "
-           << rotation(2,0) << " "
-           << rotation(2,1) << " "
-           << rotation(2,2) << std::endl;
+  void serializeTransform(char* filename, const Eigen::Isometry3f &transform){
+    std::ofstream data;
+    data.open(filename);
 
-      data.close();
+    data << transform.translation().x() << " "
+         << transform.translation().y() << " "
+         << transform.translation().z() << " ";
 
-    }
+    const Eigen::Matrix3f rotation = transform.linear().matrix();
+    data << rotation(0,0) << " "
+         << rotation(0,1) << " "
+         << rotation(0,2) << " "
+         << rotation(1,0) << " "
+         << rotation(1,1) << " "
+         << rotation(1,2) << " "
+         << rotation(2,0) << " "
+         << rotation(2,1) << " "
+         << rotation(2,2) << std::endl;
 
-    void serializeModels(char* filename, const Models &models){
+    data.close();
 
-      std::ofstream data;
-      data.open(filename);
+  }
 
-      int num_models=models.size();
-      data << num_models << std::endl;
+  void serializeModels(char* filename, const Models &models){
+    std::ofstream data;
+    data.open(filename);
 
-      for(int i=0; i<num_models; ++i){
-        const lucrezio_simulation_environments::Model &model = models[i];
-        data << model.type << " ";
-        tf::StampedTransform model_pose;
-        tf::poseMsgToTF(model.pose,model_pose);
-        const Eigen::Isometry3f model_transform=tfTransform2eigen(model_pose);
-        data << model_transform.translation().x() << " "
-             << model_transform.translation().y() << " "
-             << model_transform.translation().z() << " ";
+    int num_models=models.size();
+    data << num_models << std::endl;
 
-        const Eigen::Matrix3f model_rotation = model_transform.linear().matrix();
-        data << model_rotation(0,0) << " "
-             << model_rotation(0,1) << " "
-             << model_rotation(0,2) << " "
-             << model_rotation(1,0) << " "
-             << model_rotation(1,1) << " "
-             << model_rotation(1,2) << " "
-             << model_rotation(2,0) << " "
-             << model_rotation(2,1) << " "
-             << model_rotation(2,2) << " ";
+    for(int i=0; i<num_models; ++i){
+      const lucrezio_simulation_environments::Model &model = models[i];
+      data << model.type << " ";
+      tf::StampedTransform model_pose;
+      tf::poseMsgToTF(model.pose,model_pose);
+      const Eigen::Isometry3f model_transform=tfTransform2eigen(model_pose);
+      data << model_transform.translation().x() << " "
+           << model_transform.translation().y() << " "
+           << model_transform.translation().z() << " ";
 
-        data << model.min.x << " "
-             << model.min.y << " "
-             << model.min.z << " "
-             << model.max.x << " "
-             << model.max.y << " "
-             << model.max.z << std::endl;
+      const Eigen::Matrix3f model_rotation = model_transform.linear().matrix();
+      data << model_rotation(0,0) << " "
+           << model_rotation(0,1) << " "
+           << model_rotation(0,2) << " "
+           << model_rotation(1,0) << " "
+           << model_rotation(1,1) << " "
+           << model_rotation(1,2) << " "
+           << model_rotation(2,0) << " "
+           << model_rotation(2,1) << " "
+           << model_rotation(2,2) << " ";
 
-      }
-
-      data.close();
+      data << model.min.x << " "
+           << model.min.y << " "
+           << model.min.z << " "
+           << model.max.x << " "
+           << model.max.y << " "
+           << model.max.z << std::endl;
 
     }
+    data.close();
+  }
 
-  protected:
+protected:
 
-    //ros stuff
-    ros::NodeHandle _nh;
-    ros::Time _last_timestamp;
+  //ros stuff
+  ros::NodeHandle _nh;
+  ros::Time _last_timestamp;
 
-    //synchronized subscriber to rgbd frame and logical_image
-    message_filters::Subscriber<lucrezio_simulation_environments::LogicalImage> _logical_image_sub;
-    message_filters::Subscriber<PointCloud> _depth_points_sub;
-    typedef message_filters::sync_policies::ApproximateTime<lucrezio_simulation_environments::LogicalImage,
-    PointCloud> FilterSyncPolicy;
-    message_filters::Synchronizer<FilterSyncPolicy> _synchronizer;
+  //synchronized subscriber to rgbd frame and logical_image
+  message_filters::Subscriber<lucrezio_simulation_environments::LogicalImage> _logical_image_sub;
+  message_filters::Subscriber<PointCloud> _depth_points_sub;
+  typedef message_filters::sync_policies::ApproximateTime<lucrezio_simulation_environments::LogicalImage,
+  PointCloud> FilterSyncPolicy;
+  message_filters::Synchronizer<FilterSyncPolicy> _synchronizer;
 
-    std::ofstream _out;
-    size_t _seq;
+  std::ofstream _out;
+  size_t _seq;
 
-  private:
+private:
 
-    Eigen::Isometry3f tfTransform2eigen(const tf::Transform& p);
-    Eigen::Isometry3f poseMsg2eigen(const geometry_msgs::Pose& p);
-    tf::Transform eigen2tfTransform(const Eigen::Isometry3f& T);
+  Eigen::Isometry3f tfTransform2eigen(const tf::Transform& p){
+    Eigen::Isometry3f iso;
+    iso.translation().x()=p.getOrigin().x();
+    iso.translation().y()=p.getOrigin().y();
+    iso.translation().z()=p.getOrigin().z();
+    Eigen::Quaternionf q;
+    tf::Quaternion tq = p.getRotation();
+    q.x()= tq.x();
+    q.y()= tq.y();
+    q.z()= tq.z();
+    q.w()= tq.w();
+    iso.linear()=q.toRotationMatrix();
+    return iso;
+  }
+
+  Eigen::Isometry3f poseMsg2eigen(const geometry_msgs::Pose& p){
+    Eigen::Isometry3f iso = Eigen::Isometry3f::Identity();
+    iso.translation().x()=p.position.x;
+    iso.translation().y()=p.position.y;
+    iso.translation().z()=p.position.z;
+    Eigen::Quaternionf q;
+    q.x()=p.orientation.x;
+    q.y()=p.orientation.y;
+    q.z()=p.orientation.z;
+    q.w()=p.orientation.w;
+    iso.linear()=q.toRotationMatrix();
+    return iso;
+  }
 };
 
 int main(int argc, char **argv){
@@ -180,15 +205,9 @@ int main(int argc, char **argv){
   ros::init(argc, argv, "data_dumper_node");
   ros::NodeHandle nh;
 
-  //  SemanticMapperNode mapper(nh);
+  DataDumperNode dumper(nh,argv[1]);
 
-  //  ros::spin();
-
-  //  ros::Rate rate(1);
-  while(ros::ok()){
-    ros::spinOnce();
-//    rate.sleep();
-  }
+  ros::spin();
 
   std::cerr << std::endl;
 

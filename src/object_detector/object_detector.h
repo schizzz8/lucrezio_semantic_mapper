@@ -13,19 +13,29 @@ class ObjectDetector {
     //for each model the 3d bounding box is transformed in the rgbd camera frame
     void setupDetections();
 
-    void compute(const PointCloud::ConstPtr &points);
+    // compute method
+    void compute();
 
     //setters and getters
+    inline void setCameraTransform(const Eigen::Isometry3f& camera_transform_){_camera_transform=camera_transform_;}
     inline void setModels(const ModelVector &models_){_models = models_;}
-    const DetectionVector &detections() const {return _detections;}
+    inline const ModelVector &models() const {return _models;}
+    inline void setInputCloud(const PointCloud::ConstPtr &cloud_){_cloud=cloud_;}
+    inline const DetectionVector &detections() const {return _detections;}
 
   protected:
+
+    //camera transform
+    Eigen::Isometry3f _camera_transform;
 
     //camera_link to optical_frame transform
     Eigen::Isometry3f _fixed_transform;
 
     //vector of models detected by the logical camera
     ModelVector _models;
+
+    // input point cloud
+    PointCloud::ConstPtr _cloud;
 
     //vector of detections
     DetectionVector _detections;
