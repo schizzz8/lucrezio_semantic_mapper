@@ -3,10 +3,10 @@
 //using namespace srrg_core;
 
 ObjectDetector::ObjectDetector(){
-  _fixed_transform.setIdentity();
-//  _fixed_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
-  _fixed_transform.translation() = Eigen::Vector3f(0.0,0.0,0.6);
-  _fixed_transform = _fixed_transform.inverse();
+  _camera_offset.setIdentity();
+  _camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
+//  _camera_offset.translation() = Eigen::Vector3f(0.0,0.0,0.6);
+  _camera_offset_inv = _camera_offset.inverse();
 }
 
 void ObjectDetector::setupDetections(){
@@ -57,13 +57,16 @@ void ObjectDetector::compute(){
   if(_cloud->points.empty())
     return;
 
+//  Point pt;
   size_t h = _cloud->height;
   size_t w = _cloud->width;
   for(size_t r=0; r<h; ++r)
     for(size_t c=0; c<w; ++c){
-      const Point &point = _cloud->at(c,r);
+      const Point &p = _cloud->at(c,r);
+//      pt = pcl::transformPoint(p,_camera_transform*_camera_offset);
+
       for(size_t i=0; i<_models.size(); ++i){
-        if(_models[i].inRange(point)){
+        if(_models[i].inRange(p)){
 
           if(r < _detections[i].topLeft().x())
             _detections[i].topLeft().x() = r;

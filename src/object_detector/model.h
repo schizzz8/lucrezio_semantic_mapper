@@ -9,6 +9,7 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/common/transforms.h>
 
 typedef pcl::PointXYZRGB Point;
 typedef pcl::PointCloud<Point> PointCloud;

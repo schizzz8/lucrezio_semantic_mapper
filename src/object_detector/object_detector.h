@@ -29,7 +29,7 @@ class ObjectDetector {
     Eigen::Isometry3f _camera_transform;
 
     //camera_link to optical_frame transform
-    Eigen::Isometry3f _fixed_transform;
+    Eigen::Isometry3f _camera_offset,_camera_offset_inv;
 
     //vector of models detected by the logical camera
     ModelVector _models;
