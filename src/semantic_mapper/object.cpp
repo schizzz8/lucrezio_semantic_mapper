@@ -168,17 +168,27 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T){
       0.0,    0.0,   1.0;
   Eigen::Matrix3f inverse_camera_matrix = K.inverse();
 
-  Eigen::Vector3f origin=T.translation();
+  //camera offset
+  Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
+  camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
+
+  Eigen::Vector3f origin=T*origin;
   Eigen::Vector3f end = Eigen::Vector3f::Zero();
   Octree::AlignedPointTVector voxels;
   Point pt;
   std::vector<int> indices;
-  int rows=480;
-  int cols=640;
+  int rows=30;
+  int cols=40;
   for (int r=0; r<rows; ++r)
     for (int c=0; c<cols; ++c){
       std::cerr << ".";
-      end=T*inverse_camera_matrix*Eigen::Vector3f(c,r,1);
+
+      end=inverse_camera_matrix*Eigen::Vector3f(c*16,r*16,1);
+      end.normalize();
+      end=origin+2*end;
+      end=camera_offset*end;
+      end=T*end;
+
       voxels.clear();
       _octree->getApproxIntersectedVoxelCentersBySegment(origin, end, voxels, 0.5);
 

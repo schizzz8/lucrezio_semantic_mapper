@@ -12,8 +12,8 @@ SemanticMapper::SemanticMapper(){
 
   _globalT.setIdentity();
 
-  _fixed_transform.setIdentity();
-  _fixed_transform.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
+  _camera_offset.setIdentity();
+  _camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
 }
 
 SemanticMapper::~SemanticMapper(){
@@ -63,7 +63,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
       if(std::sqrt(point.x*point.x + point.y*point.y + point.z*point.z) < 1e-3)
         continue;
 
-      point = pcl::transformPoint(point,_globalT*_fixed_transform);
+      point = pcl::transformPoint(point,_globalT*_camera_offset);
 
       point.r = color.z()*255;
       point.g = color.y()*255;
@@ -93,7 +93,8 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     position = (min+max)/2.0f;
 
     ObjectPtr obj_ptr (new Object(model,position,min,max,color,cloud));
-//    obj_ptr->computeOccupancy(_globalT*_fixed_transform);
+    obj_ptr->computeOccupancy(_globalT);
+
     if(populate_global)
       _global_map->addObject(obj_ptr);
     else
