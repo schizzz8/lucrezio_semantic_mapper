@@ -58,10 +58,10 @@ void ObjectDetector::compute(){
     return;
 
 //  Point pt;
-  size_t h = _cloud->height;
-  size_t w = _cloud->width;
-  for(size_t r=0; r<h; ++r)
-    for(size_t c=0; c<w; ++c){
+  int h = _cloud->height;
+  int w = _cloud->width;
+  for(int r=0; r<h; ++r)
+    for(int c=0; c<w; ++c){
       const Point &p = _cloud->at(c,r);
 //      pt = pcl::transformPoint(p,_camera_transform*_camera_offset);
 
