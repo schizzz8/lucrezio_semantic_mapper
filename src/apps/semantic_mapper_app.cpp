@@ -58,6 +58,14 @@ int main(int argc, char** argv){
   K << 554.25,    0.0, 320.5,
       0.0, 554.25, 240.5,
       0.0,    0.0,   1.0;
+  Eigen::Matrix3f inverse_camera_matrix = K.inverse();
+  Eigen::Vector3f origin = Eigen::Vector3f::Zero();
+  Eigen::Vector3f end = Eigen::Vector3f::Zero();
+  int rows=30;
+  int cols=40;
+  Eigen::Isometry3f T = Eigen::Isometry3f::Identity();
+  Point origin_pt,end_pt;
+
 
   //camera offset
   Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
@@ -97,6 +105,13 @@ int main(int argc, char** argv){
         viewer->addCoordinateSystem(0.5,camera_transform,"camera_transform");
         mapper.setGlobalT(camera_transform);
         detector.setCameraTransform(camera_transform);
+
+        T=camera_transform*camera_offset;
+//        origin=camera_transform.translation();
+        origin=camera_transform*origin;
+        origin_pt.x = origin.x();
+        origin_pt.y = origin.y();
+        origin_pt.z = origin.z();
 
         //read cloud
         pcl::io::loadPCDFile<Point> (cloud_filename, *cloud);
@@ -145,11 +160,11 @@ int main(int argc, char** argv){
         const SemanticMap* map = mapper.globalMap();
         for(int i=0;i<map->size();++i){
           const ObjectPtr& obj = map->at(i);
-//          viewer->addCoordinateSystem (0.25,obj->position().x(),obj->position().y(),obj->position().z());
 
+//          viewer->addCoordinateSystem (0.25,obj->position().x(),obj->position().y(),obj->position().z());
 //          viewer->addCube(obj->min().x(),obj->max().x(),obj->min().y(),obj->max().y(),obj->min().z(),obj->max().z(),0.0,1.0,0.0,obj->model());
 
-          showCubes(obj->s(),obj->occVoxelCloud(),obj->freVoxelCloud(),obj->unnVoxelCloud(),viewer);
+//          showCubes(obj->s(),obj->occVoxelCloud(),obj->freVoxelCloud(),obj->unnVoxelCloud(),viewer);
 
           PointCloud::Ptr obj_cloud = obj->cloud();
           pcl::visualization::PointCloudColorHandlerRGBField<Point> obj_rgb(obj_cloud);
@@ -157,12 +172,25 @@ int main(int argc, char** argv){
           viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, obj->model());
         }
 
+        for (int r=0; r<rows; ++r)
+          for (int c=0; c<cols; ++c){
+            std::cerr << ".";
+            end=camera_offset*inverse_camera_matrix*Eigen::Vector3f(c*16,r*16,1);
+            end=camera_transform*end;
+            end_pt.x=end.x();
+            end_pt.y=end.y();
+            end_pt.z=end.z();
+            char buffer[50];
+            sprintf(buffer,"line_%d",c+r*cols);
+            viewer->addLine(origin_pt,end_pt,buffer);
+          }
+        std::cerr << std::endl;
+
         if(first){
           spin=!spin;
           first=false;
         }
       }
-
       viewer->spinOnce(100);
       boost::this_thread::sleep (boost::posix_time::microseconds (100000));
     }
@@ -191,7 +219,6 @@ void deserializeTransform(const char * filename, Eigen::Isometry3f &transform){
 
   fin.close();
 }
-
 
 void deserializeModels(const char * filename, ModelVector & models){
   std::ifstream fin(filename);

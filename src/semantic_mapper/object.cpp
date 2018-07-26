@@ -3,75 +3,75 @@
 namespace YAML {
   template <typename Scalar, int Rows, int Cols>
   struct convert<Eigen::Matrix<Scalar,Rows,Cols> > {
-      static Node encode(const Eigen::Matrix<Scalar,Rows,Cols> &mat){
-        static_assert(Rows != Eigen::Dynamic && Cols != Eigen::Dynamic,"Static matrices only");
-        Node node(NodeType::Sequence);
-        for (int i = 0; i < Rows; i++)
-          for (int j = 0; j < Cols; j++)
-            node[i*Cols + j] = static_cast<double>(mat(i, j));
-        return node;
-      }
+    static Node encode(const Eigen::Matrix<Scalar,Rows,Cols> &mat){
+      static_assert(Rows != Eigen::Dynamic && Cols != Eigen::Dynamic,"Static matrices only");
+      Node node(NodeType::Sequence);
+      for (int i = 0; i < Rows; i++)
+        for (int j = 0; j < Cols; j++)
+          node[i*Cols + j] = static_cast<double>(mat(i, j));
+      return node;
+    }
 
-      static bool decode(const Node &node, Eigen::Matrix<Scalar,Rows,Cols> &mat){
-        static_assert(Rows != Eigen::Dynamic && Cols != Eigen::Dynamic,"Static matrices only");
-        if (!node.IsSequence() || node.size() != Rows*Cols)
-          return false;
-        for (int i = 0; i < Rows; i++) {
-          for (int j = 0; j < Cols; j++) {
-            mat(i, j) = static_cast<Scalar>(node[i * Cols + j].as<double>());
-          }
+    static bool decode(const Node &node, Eigen::Matrix<Scalar,Rows,Cols> &mat){
+      static_assert(Rows != Eigen::Dynamic && Cols != Eigen::Dynamic,"Static matrices only");
+      if (!node.IsSequence() || node.size() != Rows*Cols)
+        return false;
+      for (int i = 0; i < Rows; i++) {
+        for (int j = 0; j < Cols; j++) {
+          mat(i, j) = static_cast<Scalar>(node[i * Cols + j].as<double>());
         }
-        return true;
       }
+      return true;
+    }
   };
 
   template<>
   struct convert<GtObject> {
-      static Node encode(const GtObject &obj) {
-        Node node;
-        const std::string& model = obj.model();
-        node["model"] = model;
-        node["position"] = obj.position();
-        node["orientation"] = obj.orientation();
-        return node;
-      }
+    static Node encode(const GtObject &obj) {
+      Node node;
+      const std::string& model = obj.model();
+      node["model"] = model;
+      node["position"] = obj.position();
+      node["orientation"] = obj.orientation();
+      return node;
+    }
 
-      static bool decode(const Node& node, GtObject &obj) {
-        if(!node.IsMap())
-          return false;
-        obj.model() = node["model"].as<std::string>();
-        obj.position() = node["position"].as<Eigen::Vector3f>();
-        obj.orientation() = node["orientation"].as<Eigen::Vector3f>();
-        return true;
-      }
+    static bool decode(const Node& node, GtObject &obj) {
+      if(!node.IsMap())
+        return false;
+      obj.model() = node["model"].as<std::string>();
+      obj.position() = node["position"].as<Eigen::Vector3f>();
+      obj.orientation() = node["orientation"].as<Eigen::Vector3f>();
+      return true;
+    }
   };
 
   template<>
   struct convert<Object> {
-      static Node encode(const Object &obj) {
-        Node node;
-        const std::string& model = obj.model();
-        node["model"] = model;
-        node["position"] = obj.position();
-        node["min"] = obj.min();
-        node["max"] = obj.max();
-        const std::string cloud_filename = model+".pcd";
-        node["cloud"] = cloud_filename;
-        pcl::io::savePCDFileASCII(cloud_filename,*(obj.cloud()));
-        return node;
-      }
+    static Node encode(const Object &obj) {
+      Node node;
+      const std::string& model = obj.model();
+      node["model"] = model;
+      node["position"] = obj.position();
+      node["min"] = obj.min();
+      node["max"] = obj.max();
+      const std::string cloud_filename = model+".pcd";
+      node["cloud"] = cloud_filename;
+      pcl::io::savePCDFileASCII(cloud_filename,*(obj.cloud()));
+      return node;
+    }
 
-      static bool decode(const Node& node, Object &obj) {
-        if(!node.IsMap())
-          return false;
-        obj.model() = node["model"].as<std::string>();
-        obj.position() = node["position"].as<Eigen::Vector3f>();
-        obj.min() = node["min"].as<Eigen::Vector3f>();
-        obj.max() = node["max"].as<Eigen::Vector3f>();
-        const std::string cloud_filename = node["cloud"].as<std::string>();
-        pcl::io::loadPCDFile<Point> (cloud_filename, *(obj.cloud()));
-        return true;
-      }
+    static bool decode(const Node& node, Object &obj) {
+      if(!node.IsMap())
+        return false;
+      obj.model() = node["model"].as<std::string>();
+      obj.position() = node["position"].as<Eigen::Vector3f>();
+      obj.min() = node["min"].as<Eigen::Vector3f>();
+      obj.max() = node["max"].as<Eigen::Vector3f>();
+      const std::string cloud_filename = node["cloud"].as<std::string>();
+      pcl::io::loadPCDFile<Point> (cloud_filename, *(obj.cloud()));
+      return true;
+    }
   };
 }
 
@@ -111,6 +111,14 @@ Object::Object(const string &model_,
   _occ_voxel_cloud = PointCloud::Ptr (new PointCloud());
   _s=0;
 
+  _octree->setInputCloud(_cloud);
+  _octree->defineBoundingBox();
+  _octree->addPointsFromInputCloud();
+
+  int depth = static_cast<int> (_octree->getTreeDepth());
+  if (depth == 0)
+    depth = 1;
+  _s = std::sqrt (_octree->getVoxelSquaredSideLen (depth)) / 2.0;
 }
 
 bool Object::operator <(const Object &o) const{
@@ -152,20 +160,13 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T){
   if(_cloud->empty())
     return;
 
+  std::cerr << "Computing occupancy for " << _model << "..." << std::endl;
+
   Eigen::Matrix3f K;
   K << 554.25,    0.0, 320.5,
       0.0, 554.25, 240.5,
       0.0,    0.0,   1.0;
   Eigen::Matrix3f inverse_camera_matrix = K.inverse();
-
-  _octree->setInputCloud(_cloud);
-  _octree->defineBoundingBox();
-  _octree->addPointsFromInputCloud();
-
-  int depth = static_cast<int> (_octree->getTreeDepth());
-  if (depth == 0)
-    depth = 1;
-  _s = std::sqrt (_octree->getVoxelSquaredSideLen (depth)) / 2.0;
 
   Eigen::Vector3f origin=T.translation();
   Eigen::Vector3f end = Eigen::Vector3f::Zero();
@@ -174,10 +175,10 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T){
   std::vector<int> indices;
   int rows=480;
   int cols=640;
-  for (int r=0; r<rows; ++r) {
+  for (int r=0; r<rows; ++r)
     for (int c=0; c<cols; ++c){
-      end=inverse_camera_matrix*Eigen::Vector3f(c,r,1);
-      end=T*end;
+      std::cerr << ".";
+      end=T*inverse_camera_matrix*Eigen::Vector3f(c,r,1);
       voxels.clear();
       _octree->getApproxIntersectedVoxelCentersBySegment(origin, end, voxels, 0.5);
 
@@ -207,5 +208,7 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T){
         }
       }
     }
-  }
+  std::cerr << "occ: " << _occ_voxel_cloud->points.size() << " - ";
+  std::cerr << "fre: " << _fre_voxel_cloud->points.size() << " - ";
+  std::cerr << "unn: " << _unn_voxel_cloud->points.size() << std::endl;
 }

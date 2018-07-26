@@ -93,6 +93,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     position = (min+max)/2.0f;
 
     ObjectPtr obj_ptr (new Object(model,position,min,max,color,cloud));
+//    obj_ptr->computeOccupancy(_globalT*_fixed_transform);
     if(populate_global)
       _global_map->addObject(obj_ptr);
     else
