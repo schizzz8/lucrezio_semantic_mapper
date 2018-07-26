@@ -66,6 +66,7 @@ void ObjectDetector::compute(){
 //      pt = pcl::transformPoint(p,_camera_transform*_camera_offset);
 
       for(size_t i=0; i<_models.size(); ++i){
+
         if(_models[i].inRange(p)){
 
           if(r < _detections[i].topLeft().x())

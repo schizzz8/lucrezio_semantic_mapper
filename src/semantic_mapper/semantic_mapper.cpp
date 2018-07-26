@@ -36,9 +36,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
 
   size_t w=points->width;
 
-  for(int i=0; i < detections.size(); ++i){
-
-    const Detection& detection = detections[i];
+  for(const Detection& detection : detections){
 
     if(detection.pixels().size() < 10)
       continue;
@@ -93,7 +91,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     position = (min+max)/2.0f;
 
     ObjectPtr obj_ptr (new Object(model,position,min,max,color,cloud));
-    obj_ptr->computeOccupancy(_globalT);
+    obj_ptr->computeOccupancy(_globalT,detection.topLeft(),detection.bottomRight());
 
     if(populate_global)
       _global_map->addObject(obj_ptr);

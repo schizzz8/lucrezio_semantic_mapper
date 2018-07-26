@@ -58,4 +58,9 @@ void Detection::setType(const std::string &type){
   unsigned long b_value = std::strtoul(result.substr(4,2).c_str(), 0, 16);
 
   _color = Eigen::Vector3i(r_value,g_value,b_value);
+
+  _size=0;
+  _top_left = Eigen::Vector2i(10000,10000);
+  _bottom_right = Eigen::Vector2i(-10000,-10000);
+
 }

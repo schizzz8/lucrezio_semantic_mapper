@@ -155,12 +155,16 @@ void Object::merge(const ObjectPtr & o){
   _voxelizer.filter(*cloud_filtered);
 }
 
-void Object::computeOccupancy(const Eigen::Isometry3f &T){
+void Object::computeOccupancy(const Eigen::Isometry3f &T,
+                              const Eigen::Vector2i & top_left,
+                              const Eigen::Vector2i & bottom_right){
 
   if(_cloud->empty())
     return;
 
   std::cerr << "Computing occupancy for " << _model << "..." << std::endl;
+  std::cerr << "Top left: " << top_left.transpose() << std::endl;
+  std::cerr << "Bottom right: " << bottom_right.transpose() << std::endl;
 
   Eigen::Matrix3f K;
   K << 554.25,    0.0, 320.5,
@@ -177,13 +181,15 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T){
   Octree::AlignedPointTVector voxels;
   Point pt;
   std::vector<int> indices;
-  int rows=30;
-  int cols=40;
-  for (int r=0; r<rows; ++r)
-    for (int c=0; c<cols; ++c){
-      std::cerr << ".";
+//  int rows=30;
+//  int cols=40;
+  //  for (int r=0; r<rows; ++r)
+  //    for (int c=0; c<cols; ++c){
 
-      end=inverse_camera_matrix*Eigen::Vector3f(c*16,r*16,1);
+  for (int r=top_left.x(); r<bottom_right.x(); r=r+10)
+    for (int c=top_left.y(); c<bottom_right.y(); c=c+10){
+
+      end=inverse_camera_matrix*Eigen::Vector3f(c,r,1);
       end.normalize();
       end=origin+2*end;
       end=camera_offset*end;

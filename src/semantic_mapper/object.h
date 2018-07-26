@@ -81,7 +81,9 @@ class Object {
     void merge(const ObjectPtr &o);
 
     //compute occupancy
-    void computeOccupancy(const Eigen::Isometry3f& T);
+    void computeOccupancy(const Eigen::Isometry3f& T,
+                          const Eigen::Vector2i& top_left = Eigen::Vector2i::Zero(),
+                          const Eigen::Vector2i& bottom_right = Eigen::Vector2i(480,640));
 
   private:
 
