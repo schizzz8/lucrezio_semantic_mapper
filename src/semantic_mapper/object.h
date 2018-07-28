@@ -77,6 +77,9 @@ class Object {
 
     inline const float s() const {return _s;}
 
+    //check if a point falls in the bounding box
+    bool inRange(const Point &point);
+
     //merge two objects
     void merge(const ObjectPtr &o);
 

@@ -129,6 +129,12 @@ bool Object::operator ==(const Object &o) const{
   return (_model.compare(o.model()) == 0);
 }
 
+bool Object::inRange(const Point &point){
+  return (point.x >= _min.x() && point.x <= _max.x() &&
+          point.y >= _min.y() && point.y <= _max.y() &&
+          point.z >= _min.z() && point.z <= _max.z());
+}
+
 void Object::merge(const ObjectPtr & o){
   if(o->min().x() < _min.x())
     _min.x() = o->min().x();
@@ -162,10 +168,6 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T,
   if(_cloud->empty())
     return;
 
-  std::cerr << "Computing occupancy for " << _model << "..." << std::endl;
-  std::cerr << "Top left: " << top_left.transpose() << std::endl;
-  std::cerr << "Bottom right: " << bottom_right.transpose() << std::endl;
-
   Eigen::Matrix3f K;
   K << 554.25,    0.0, 320.5,
       0.0, 554.25, 240.5,
@@ -176,15 +178,15 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T,
   Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
   camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
 
+  // ray casting
+  int occ=0,fre=0,unn=0;
   Eigen::Vector3f origin=T*origin;
   Eigen::Vector3f end = Eigen::Vector3f::Zero();
   Octree::AlignedPointTVector voxels;
   Point pt;
   std::vector<int> indices;
-//  int rows=30;
-//  int cols=40;
-  //  for (int r=0; r<rows; ++r)
-  //    for (int c=0; c<cols; ++c){
+  std::vector<int> all_indices;
+  all_indices.clear();
 
   for (int r=top_left.x(); r<bottom_right.x(); r=r+10)
     for (int c=top_left.y(); c<bottom_right.y(); c=c+10){
@@ -203,28 +205,54 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T,
         pt.x = voxels[i].x;
         pt.y = voxels[i].y;
         pt.z = voxels[i].z;
-        pt.r = 0;
-        pt.g = 0;
-        pt.b = 1.0;
+
+        if(!inRange(pt))
+          continue;
+
         indices.clear();
         bool found=_octree->voxelSearch(pt,indices);
         if(!found){
           if(hit){
+            //UNKNOWN
+            pt.r = 0;
+            pt.g = 1.0;
+            pt.b = 0;
             _unn_voxel_cloud->points.push_back(pt);
+            unn++;
             continue;
           }
-          _fre_voxel_cloud->points.push_back(pt);
+          //FREE
+//          _fre_voxel_cloud->points.push_back(pt);
+          fre++;
           continue;
         }
         if(indices.size()){
+          //OCCUPIED
+          all_indices.insert(all_indices.end(),indices.begin(),indices.end());
+          pt.r = 0;
+          pt.g = 0;
+          pt.b = 1.0;
           _occ_voxel_cloud->points.push_back(pt);
+          occ++;
           if(!hit)
             hit=true;
           continue;
         }
       }
     }
-  std::cerr << "occ: " << _occ_voxel_cloud->points.size() << " - ";
-  std::cerr << "fre: " << _fre_voxel_cloud->points.size() << " - ";
-  std::cerr << "unn: " << _unn_voxel_cloud->points.size() << std::endl;
+  std::cerr << "occ: " << occ << " - ";
+  std::cerr << "fre: " << fre << " - ";
+  std::cerr << "unn: " << unn << std::endl;
+
+  for(int idx : all_indices)
+    _cloud->points.erase(_cloud->begin()+idx);
+
+  for(int i=0; i<_occ_voxel_cloud->points.size(); ++i){
+    _octree->deleteVoxelAtPoint(_occ_voxel_cloud->points[i]);
+    _octree->addPointToCloud(_occ_voxel_cloud->points[i],_cloud);
+  }
+
+  for(int i=0; i<_unn_voxel_cloud->points.size(); ++i){
+    _octree->addPointToCloud(_unn_voxel_cloud->points[i],_cloud);
+  }
 }
