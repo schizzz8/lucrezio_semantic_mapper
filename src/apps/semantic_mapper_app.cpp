@@ -3,6 +3,7 @@
 
 #include <object_detector/object_detector.h>
 #include <semantic_mapper/semantic_mapper.h>
+#include <semantic_explorer/semantic_explorer.h>
 
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/common/transforms.h>
