@@ -129,7 +129,7 @@ bool Object::operator ==(const Object &o) const{
   return (_model.compare(o.model()) == 0);
 }
 
-bool Object::inRange(const Point &point){
+bool Object::inRange(const Point &point) const{
   return (point.x >= _min.x() && point.x <= _max.x() &&
           point.y >= _min.y() && point.y <= _max.y() &&
           point.z >= _min.z() && point.z <= _max.z());
@@ -180,7 +180,7 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T,
 
   // ray casting
   int occ=0,fre=0,unn=0;
-  Eigen::Vector3f origin=T*origin;
+  Eigen::Vector3f origin=T.translation();
   Eigen::Vector3f end = Eigen::Vector3f::Zero();
   Octree::AlignedPointTVector voxels;
   Point pt;
@@ -193,7 +193,7 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T,
 
       end=inverse_camera_matrix*Eigen::Vector3f(c,r,1);
       end.normalize();
-      end=origin+2*end;
+      end=2*end;
       end=camera_offset*end;
       end=T*end;
 
@@ -222,7 +222,7 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T,
             continue;
           }
           //FREE
-//          _fre_voxel_cloud->points.push_back(pt);
+          //          _fre_voxel_cloud->points.push_back(pt);
           fre++;
           continue;
         }

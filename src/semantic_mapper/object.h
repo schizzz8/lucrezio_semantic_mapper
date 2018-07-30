@@ -78,7 +78,7 @@ class Object {
     inline const float s() const {return _s;}
 
     //check if a point falls in the bounding box
-    bool inRange(const Point &point);
+    bool inRange(const Point &point) const;
 
     //merge two objects
     void merge(const ObjectPtr &o);
@@ -87,6 +87,9 @@ class Object {
     void computeOccupancy(const Eigen::Isometry3f& T,
                           const Eigen::Vector2i& top_left = Eigen::Vector2i::Zero(),
                           const Eigen::Vector2i& bottom_right = Eigen::Vector2i(480,640));
+
+    inline const Octree::Ptr& octree() const {return _octree;}
+    inline Octree::Ptr& octree() {return _octree;}
 
   private:
 

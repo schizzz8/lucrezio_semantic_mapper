@@ -4,6 +4,7 @@ add_executable(semantic_mapper_app
 
 target_link_libraries(semantic_mapper_app
   semantic_mapper_library
+  semantic_explorer_library
   ${catkin_LIBRARIES}
 )
 

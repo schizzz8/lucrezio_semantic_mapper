@@ -2,28 +2,39 @@
 
 #include <semantic_mapper/semantic_map.h>
 
-typedef std::vector<Eigen::Vector3f> Vector3fVector;
+typedef std::vector<Eigen::Vector3f, Eigen::aligned_allocator<Eigen::Vector3f> > Vector3fVector;
+typedef std::vector<Eigen::Isometry3f, Eigen::aligned_allocator<Eigen::Isometry3f> > Isometry3fVector;
 
 class SemanticExplorer{
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
-  void setup();
+  SemanticExplorer();
 
-  inline void setRobotPose(const Eigen::Isometry3f &robot_pose_){_robot_pose=robot_pose_;}
+  inline void setCameraPose(const Eigen::Isometry3f &camera_pose_){_camera_pose=camera_pose_;}
 
-  void setObjects(const SemanticMap &semantic_map_);
+  void setObjects(const SemanticMap* semantic_map_);
 
   bool findNearestObject();
 
   Vector3fVector computePoses();
+  Eigen::Vector3f computeNBV();
 
   void setProcessed();
 
+  inline const Object* nearestObject() const {return _nearest_object;}
+
 protected:
-  Eigen::Isometry3f _robot_pose;
+  Eigen::Isometry3f _camera_pose;
   ObjectSet _objects;
   ObjectSet _processed;
   const Object* _nearest_object;
+
+private:
+  Eigen::Isometry3f transform3d(const Eigen::Vector3f& v){
+    Eigen::Isometry3f T = Eigen::Isometry3f::Identity();
+    T.translation() = Eigen::Vector3f(v.x(),v.y(),0.6);
+    T.linear() = Eigen::AngleAxisf(v.z(),Eigen::Vector3f::UnitZ()).matrix();
+  }
 };

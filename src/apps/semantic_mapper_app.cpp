@@ -45,18 +45,20 @@ int main(int argc, char** argv){
 
   ObjectDetector detector;
   SemanticMapper mapper;
+  SemanticExplorer explorer;
 
   Eigen::Isometry3f camera_transform = Eigen::Isometry3f::Identity();
   ModelVector models;
   PointCloud::Ptr cloud (new PointCloud());
   PointCloud::Ptr detection_cloud (new PointCloud());
-  Point pt;
+  Point pt,origin_pt,end_pt;
 
   //K
   Eigen::Matrix3f K;
   K << 554.25,    0.0, 320.5,
       0.0, 554.25, 240.5,
       0.0,    0.0,   1.0;
+  Eigen::Matrix3f inverse_camera_matrix = K.inverse();
 
   //camera offset
   Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
@@ -84,78 +86,86 @@ int main(int argc, char** argv){
         viewer->removeAllShapes();
         viewer->removeAllPointClouds();
 
+        // read line
         std::istringstream iss(line);
-
         double timestamp;
         std::string cloud_filename,transform_filename,models_filename;
         iss>>timestamp>>cloud_filename>>transform_filename>>models_filename;
 
-        //read camera transform
+        //get camera transform
         deserializeTransform(transform_filename.c_str(),camera_transform);
         std::cerr << "Camera transform: " << t2vFull(camera_transform).transpose() << std::endl;
         viewer->addCoordinateSystem(0.5,camera_transform,"camera_transform");
-        mapper.setGlobalT(camera_transform);
         detector.setCameraTransform(camera_transform);
+        mapper.setGlobalT(camera_transform);
+        explorer.setCameraPose(camera_transform);
 
-        //read cloud
+        //get cloud
         pcl::io::loadPCDFile<Point> (cloud_filename, *cloud);
         std::cerr << "Loading cloud: " << cloud_filename << std::endl;
         pcl::transformPointCloud (*cloud, *transformed_cloud, camera_transform*camera_offset);
         detector.setInputCloud(transformed_cloud);
 
-        //read models
+        //get models
         deserializeModels(models_filename.c_str(),models);
         detector.setModels(models);
         detector.setupDetections();
-        //        for(const Model& m : detector.models())
-        //          viewer->addCube(m.min().x(),m.max().x(),m.min().y(),m.max().y(),m.min().z(),m.max().z(),0.0,0.0,1.0,m.type());
 
         //compute detections
         detector.compute();
+
         const DetectionVector &detections = detector.detections();
-        for(const Detection& d : detections){
-          const std::vector<Eigen::Vector2i>& pixels = d.pixels();
-          for(const Eigen::Vector2i& p : pixels){
-            pt=transformed_cloud->at(p.y(),p.x());
-            pt.r=d.color().x();
-            pt.g=d.color().y();
-            pt.b=d.color().z();
-            detection_cloud->push_back(pt);
-          }
+
+        //update semantic map
+        mapper.extractObjects(detections,cloud);
+        mapper.findAssociations();
+        mapper.mergeMaps();
+
+        const SemanticMap* map = mapper.globalMap();
+
+        //compute NBV
+        explorer.setObjects(map);
+        if(explorer.findNearestObject()){
+          Eigen::Vector3f nbv = explorer.computeNBV();
+
+          std::cerr << "NBV: " << nbv.transpose() << std::endl;
+
         }
 
+        // Visualization
+
+        //        for(const Model& m : detector.models())
+        //          viewer->addCube(m.min().x(),m.max().x(),m.min().y(),m.max().y(),m.min().z(),m.max().z(),0.0,0.0,1.0,m.type());
+
+        //        for(const Detection& d : detections){
+        //          const std::vector<Eigen::Vector2i>& pixels = d.pixels();
+        //          for(const Eigen::Vector2i& p : pixels){
+        //            pt=transformed_cloud->at(p.y(),p.x());
+        //            pt.r=d.color().x();
+        //            pt.g=d.color().y();
+        //            pt.b=d.color().z();
+        //            detection_cloud->push_back(pt);
+        //          }
+        //        }
         //        pcl::visualization::PointCloudColorHandlerRGBField<Point> rgb(transformed_cloud);
         //        viewer->addPointCloud<Point> (transformed_cloud, rgb, cloud_filename);
         //        pcl::visualization::PointCloudColorHandlerRGBField<Point> rgb(detection_cloud);
         //        viewer->addPointCloud<Point> (detection_cloud, rgb, cloud_filename);
         //        viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, cloud_filename);
 
-
-        //extract objects from detections
-        mapper.extractObjects(detections,cloud);
-
-        //data association
-        mapper.findAssociations();
-
-        //update
-        mapper.mergeMaps();
-
-        //get map
-        const SemanticMap* map = mapper.globalMap();
         for(int i=0;i<map->size();++i){
           const ObjectPtr& obj = map->at(i);
-
-//          viewer->addCoordinateSystem (0.25,obj->position().x(),obj->position().y(),obj->position().z());
-//          viewer->addCube(obj->min().x(),obj->max().x(),obj->min().y(),obj->max().y(),obj->min().z(),obj->max().z(),0.0,1.0,0.0,obj->model());
-
-          showCubes(obj->s(),obj->cloud(),viewer);
-
+          viewer->addCoordinateSystem (0.25,obj->position().x(),obj->position().y(),obj->position().z());
+          //          viewer->addCube(obj->min().x(),obj->max().x(),
+          //                          obj->min().y(),obj->max().y(),
+          //                          obj->min().z(),obj->max().z(),
+          //                          0.0,1.0,0.0,obj->model());
+          //          showCubes(obj->s(),obj->cloud(),viewer);
           PointCloud::Ptr obj_cloud = obj->cloud();
           pcl::visualization::PointCloudColorHandlerRGBField<Point> obj_rgb(obj_cloud);
           viewer->addPointCloud<Point> (obj_cloud, obj_rgb, obj->model());
           viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, obj->model());
         }
-
 
         if(first){
           spin=!spin;
