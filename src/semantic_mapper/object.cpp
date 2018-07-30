@@ -168,6 +168,8 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T,
   if(_cloud->empty())
     return;
 
+  std::cerr << _model << " => ";
+
   Eigen::Matrix3f K;
   K << 554.25,    0.0, 320.5,
       0.0, 554.25, 240.5,
@@ -244,8 +246,8 @@ void Object::computeOccupancy(const Eigen::Isometry3f &T,
   std::cerr << "fre: " << fre << " - ";
   std::cerr << "unn: " << unn << std::endl;
 
-  for(int idx : all_indices)
-    _cloud->points.erase(_cloud->begin()+idx);
+//  for(int idx : all_indices)
+//    _cloud->points.erase(_cloud->begin()+idx);
 
   for(int i=0; i<_occ_voxel_cloud->points.size(); ++i){
     _octree->deleteVoxelAtPoint(_occ_voxel_cloud->points[i]);

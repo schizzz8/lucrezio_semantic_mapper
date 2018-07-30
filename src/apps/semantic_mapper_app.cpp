@@ -86,7 +86,7 @@ int main(int argc, char** argv){
         viewer->removeAllShapes();
         viewer->removeAllPointClouds();
 
-        // read line
+        // read input
         std::istringstream iss(line);
         double timestamp;
         std::string cloud_filename,transform_filename,models_filename;
@@ -113,24 +113,20 @@ int main(int argc, char** argv){
 
         //compute detections
         detector.compute();
-
         const DetectionVector &detections = detector.detections();
 
         //update semantic map
         mapper.extractObjects(detections,cloud);
         mapper.findAssociations();
         mapper.mergeMaps();
-
         const SemanticMap* map = mapper.globalMap();
 
         //compute NBV
-        explorer.setObjects(map);
-        if(explorer.findNearestObject()){
-          Eigen::Vector3f nbv = explorer.computeNBV();
-
-          std::cerr << "NBV: " << nbv.transpose() << std::endl;
-
-        }
+//        explorer.setObjects(map);
+//        if(explorer.findNearestObject()){
+//          Eigen::Vector3f nbv = explorer.computeNBV();
+//          std::cerr << "NBV: " << nbv.transpose() << std::endl;
+//        }
 
         // Visualization
 
@@ -153,18 +149,27 @@ int main(int argc, char** argv){
         //        viewer->addPointCloud<Point> (detection_cloud, rgb, cloud_filename);
         //        viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, cloud_filename);
 
+        std::cerr << "showing map" << std::endl;
         for(int i=0;i<map->size();++i){
           const ObjectPtr& obj = map->at(i);
+          std::cerr << obj->model() << std::endl;
           viewer->addCoordinateSystem (0.25,obj->position().x(),obj->position().y(),obj->position().z());
-          //          viewer->addCube(obj->min().x(),obj->max().x(),
-          //                          obj->min().y(),obj->max().y(),
-          //                          obj->min().z(),obj->max().z(),
-          //                          0.0,1.0,0.0,obj->model());
-          //          showCubes(obj->s(),obj->cloud(),viewer);
+          std::cerr << "a";
+
+          viewer->addCube(obj->min().x(),obj->max().x(),
+                          obj->min().y(),obj->max().y(),
+                          obj->min().z(),obj->max().z(),
+                          0.0,1.0,0.0,obj->model());
+          std::cerr << "b";
+          //                    showCubes(obj->s(),obj->cloud(),viewer);
           PointCloud::Ptr obj_cloud = obj->cloud();
+          std::cerr << obj_cloud->size();
           pcl::visualization::PointCloudColorHandlerRGBField<Point> obj_rgb(obj_cloud);
+          std::cerr << "d";
           viewer->addPointCloud<Point> (obj_cloud, obj_rgb, obj->model());
+          std::cerr << "e";
           viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, obj->model());
+          std::cerr << "f" << std::endl;
         }
 
         if(first){
