@@ -13,6 +13,7 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
+#include <sensor_msgs/Joy.h>
 
 #include <object_detector/object_detector.h>
 #include <semantic_mapper/semantic_mapper.h>
@@ -39,10 +40,21 @@ public:
     _synchronizer(FilterSyncPolicy(1000),_logical_image_sub,_depth_points_sub){
 
     _synchronizer.registerCallback(boost::bind(&DataDumperNode::filterCallback, this, _1, _2));
+
+    _joy_sub = _nh.subscribe("/joy", 1000, &DataDumperNode::joyCallback,this);
+    _enable = false;
+
     _out.open(filename);
     _seq=0;
 
     ROS_INFO("Starting data dumper node...");
+  }
+
+  void joyCallback(const sensor_msgs::Joy::ConstPtr &joy_msg){
+    if(joy_msg->buttons[0] == 1){
+      ROS_INFO("Capturing frame!");
+      _enable = true;
+    }
   }
 
   void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
@@ -58,6 +70,9 @@ public:
     pcl_conversions::fromPCL(depth_points_msg->header.stamp,depth_stamp);
     ros::Duration stamp_diff = image_stamp - depth_stamp;
     if(std::abs(stamp_diff.toSec()) > 0.03)
+      return;
+
+    if(!_enable)
       return;
 
     _last_timestamp = image_stamp;
@@ -86,6 +101,7 @@ public:
     _out << models_filename << std::endl;
 
     _seq++;
+    _enable=false;
     std::cerr << ".";
 
   }
@@ -164,6 +180,10 @@ protected:
   typedef message_filters::sync_policies::ApproximateTime<lucrezio_simulation_environments::LogicalImage,
   PointCloud> FilterSyncPolicy;
   message_filters::Synchronizer<FilterSyncPolicy> _synchronizer;
+
+  //joy subscriber
+  ros::Subscriber _joy_sub;
+  bool _enable;
 
   std::ofstream _out;
   size_t _seq;
