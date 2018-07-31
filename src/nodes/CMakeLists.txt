@@ -32,6 +32,7 @@ add_executable(map_evaluator_node
 
 target_link_libraries(map_evaluator_node
   map_evaluator_library
+  ${OCTOMAP_LIBRARIES}
   ${catkin_LIBRARIES}
 )
 

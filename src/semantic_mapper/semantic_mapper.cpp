@@ -91,7 +91,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     position = (min+max)/2.0f;
 
     ObjectPtr obj_ptr (new Object(model,position,min,max,color,cloud));
-    obj_ptr->computeOccupancy(_globalT,detection.topLeft(),detection.bottomRight());
+    obj_ptr->updateOccupancy(_globalT,cloud);
 
     if(populate_global)
       _global_map->addObject(obj_ptr);
@@ -157,6 +157,7 @@ void SemanticMapper::mergeMaps(){
       if(local->model() != global_associated->model())
         continue;
 
+      global_associated->updateOccupancy(_globalT,local->cloud());
       global_associated->merge(local);
       merged++;
     } else {

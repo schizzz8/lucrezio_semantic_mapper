@@ -29,7 +29,6 @@ Vector7f t2vFull(const Eigen::Isometry3f& iso){
   return v;
 }
 
-
 bool spin=true;
 
 void deserializeTransform(const char * filename, Eigen::Isometry3f &transform);
@@ -38,7 +37,8 @@ void deserializeModels(const char * filename, ModelVector & models);
 void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void* viewer_void);
 
 void showCubes(double side,
-               const PointCloud::Ptr& cloud,
+               const PointCloud::Ptr& occ_cloud,
+               const PointCloud::Ptr& fre_cloud,
                Visualizer::Ptr& viewer);
 
 int main(int argc, char** argv){
@@ -122,11 +122,31 @@ int main(int argc, char** argv){
         const SemanticMap* map = mapper.globalMap();
 
         //compute NBV
-//        explorer.setObjects(map);
-//        if(explorer.findNearestObject()){
-//          Eigen::Vector3f nbv = explorer.computeNBV();
-//          std::cerr << "NBV: " << nbv.transpose() << std::endl;
-//        }
+        explorer.setObjects(map);
+        if(explorer.findNearestObject()){
+          std::cerr << "Nearest: " << explorer.nearestObject()->model() << std::endl;
+          Eigen::Vector3f nbv = explorer.computeNBV();
+          std::cerr << "NBV: " << nbv.transpose() << std::endl;
+
+          Vector3fPairVector rays = explorer.rays();
+          for(int i=0; i<rays.size(); ++i){
+            char buffer[30];
+            sprintf(buffer,"line_%d",i);
+            Eigen::Vector3f origin=rays[i].first;
+            Eigen::Vector3f end=rays[i].second;
+            Point o;
+            o.x=origin.x();
+            o.y=origin.y();
+            o.z=origin.z();
+            Point e;
+            e.x=end.x();
+            e.y=end.y();
+            e.z=end.z();
+            viewer->addLine(o,e,buffer);
+          }
+
+          showCubes(0.05,explorer.nearestObject()->occVoxelCloud(),explorer.nearestObject()->freVoxelCloud(),viewer);
+        }
 
         // Visualization
 
@@ -152,24 +172,16 @@ int main(int argc, char** argv){
         std::cerr << "showing map" << std::endl;
         for(int i=0;i<map->size();++i){
           const ObjectPtr& obj = map->at(i);
-          std::cerr << obj->model() << std::endl;
-          viewer->addCoordinateSystem (0.25,obj->position().x(),obj->position().y(),obj->position().z());
-          std::cerr << "a";
+//          viewer->addCoordinateSystem (0.25,obj->position().x(),obj->position().y(),obj->position().z());
+//          viewer->addCube(obj->min().x(),obj->max().x(),
+//                          obj->min().y(),obj->max().y(),
+//                          obj->min().z(),obj->max().z(),
+//                          0.0,1.0,0.0,obj->model());
+//          PointCloud::Ptr obj_cloud = obj->cloud();
+//          pcl::visualization::PointCloudColorHandlerRGBField<Point> obj_rgb(obj_cloud);
+//          viewer->addPointCloud<Point> (obj_cloud, obj_rgb, obj->model());
+//          viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, obj->model());
 
-          viewer->addCube(obj->min().x(),obj->max().x(),
-                          obj->min().y(),obj->max().y(),
-                          obj->min().z(),obj->max().z(),
-                          0.0,1.0,0.0,obj->model());
-          std::cerr << "b";
-          //                    showCubes(obj->s(),obj->cloud(),viewer);
-          PointCloud::Ptr obj_cloud = obj->cloud();
-          std::cerr << obj_cloud->size();
-          pcl::visualization::PointCloudColorHandlerRGBField<Point> obj_rgb(obj_cloud);
-          std::cerr << "d";
-          viewer->addPointCloud<Point> (obj_cloud, obj_rgb, obj->model());
-          std::cerr << "e";
-          viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, obj->model());
-          std::cerr << "f" << std::endl;
         }
 
         if(first){
@@ -253,18 +265,17 @@ void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void*
 }
 
 void showCubes(double s,
-               const PointCloud::Ptr& cloud,
+               const PointCloud::Ptr& occ_cloud,
+               const PointCloud::Ptr& fre_cloud,
                Visualizer::Ptr& viewer){
 
-  // process occ cloud
-  vtkSmartPointer<vtkAppendPolyData> occ_append_filter = vtkSmartPointer<vtkAppendPolyData>::New ();
-  for (size_t i = 0; i < cloud->points.size (); i++) {
-
-    if(cloud->points[i].b == 1){
-
-      double x = cloud->points[i].x;
-      double y = cloud->points[i].y;
-      double z = cloud->points[i].z;
+  if(occ_cloud->points.size()){
+    // process occ cloud
+    vtkSmartPointer<vtkAppendPolyData> occ_append_filter = vtkSmartPointer<vtkAppendPolyData>::New ();
+    for (size_t i = 0; i < occ_cloud->points.size (); i++) {
+      double x = occ_cloud->points[i].x;
+      double y = occ_cloud->points[i].y;
+      double z = occ_cloud->points[i].z;
 
       vtkSmartPointer<vtkCubeSource> occ_cube_source = vtkSmartPointer<vtkCubeSource>::New ();
 
@@ -277,70 +288,68 @@ void showCubes(double s,
       occ_append_filter->AddInputData (occ_cube_source->GetOutput ());
 #endif
     }
+
+    // Remove duplicate points
+    vtkSmartPointer<vtkCleanPolyData> occ_clean_filter = vtkSmartPointer<vtkCleanPolyData>::New ();
+    occ_clean_filter->SetInputConnection (occ_append_filter->GetOutputPort ());
+    occ_clean_filter->Update ();
+
+    //Create a mapper and actor
+    vtkSmartPointer<vtkPolyDataMapper> occ_multi_mapper = vtkSmartPointer<vtkPolyDataMapper>::New ();
+    occ_multi_mapper->SetInputConnection (occ_clean_filter->GetOutputPort ());
+    vtkSmartPointer<vtkActor> occ_multi_actor = vtkSmartPointer<vtkActor>::New ();
+    occ_multi_actor->SetMapper (occ_multi_mapper);
+    occ_multi_actor->GetProperty ()->SetColor (1.0, 0.0, 0.0);
+    occ_multi_actor->GetProperty ()->SetAmbient (1.0);
+    occ_multi_actor->GetProperty ()->SetLineWidth (1);
+    occ_multi_actor->GetProperty ()->EdgeVisibilityOn ();
+    occ_multi_actor->GetProperty ()->SetOpacity (1.0);
+    occ_multi_actor->GetProperty ()->SetRepresentationToWireframe ();
+
+    // Add the actor to the scene
+    viewer->getRenderWindow ()->GetRenderers ()->GetFirstRenderer ()->AddActor (occ_multi_actor);
   }
 
-  // Remove duplicate points
-  vtkSmartPointer<vtkCleanPolyData> occ_clean_filter = vtkSmartPointer<vtkCleanPolyData>::New ();
-  occ_clean_filter->SetInputConnection (occ_append_filter->GetOutputPort ());
-  occ_clean_filter->Update ();
+  if(fre_cloud->points.size()){
+    // process fre cloud
+    vtkSmartPointer<vtkAppendPolyData> fre_append_filter = vtkSmartPointer<vtkAppendPolyData>::New ();
+    for (size_t i = 0; i < fre_cloud->points.size (); i++) {
+      double x = fre_cloud->points[i].x;
+      double y = fre_cloud->points[i].y;
+      double z = fre_cloud->points[i].z;
 
-  //Create a mapper and actor
-  vtkSmartPointer<vtkPolyDataMapper> occ_multi_mapper = vtkSmartPointer<vtkPolyDataMapper>::New ();
-  occ_multi_mapper->SetInputConnection (occ_clean_filter->GetOutputPort ());
-  vtkSmartPointer<vtkActor> occ_multi_actor = vtkSmartPointer<vtkActor>::New ();
-  occ_multi_actor->SetMapper (occ_multi_mapper);
-  occ_multi_actor->GetProperty ()->SetColor (0.0, 0.0, 1.0);
-  occ_multi_actor->GetProperty ()->SetAmbient (1.0);
-  occ_multi_actor->GetProperty ()->SetLineWidth (1);
-  occ_multi_actor->GetProperty ()->EdgeVisibilityOn ();
-  occ_multi_actor->GetProperty ()->SetOpacity (1.0);
-  occ_multi_actor->GetProperty ()->SetRepresentationToWireframe ();
+      vtkSmartPointer<vtkCubeSource> fre_cube_source = vtkSmartPointer<vtkCubeSource>::New ();
 
-  // Add the actor to the scene
-  viewer->getRenderWindow ()->GetRenderers ()->GetFirstRenderer ()->AddActor (occ_multi_actor);
-
-  // process unn cloud
-  vtkSmartPointer<vtkAppendPolyData> unn_append_filter = vtkSmartPointer<vtkAppendPolyData>::New ();
-  for (size_t i = 0; i < cloud->points.size (); i++) {
-
-    if(cloud->points[i].g == 1){
-
-      double x = cloud->points[i].x;
-      double y = cloud->points[i].y;
-      double z = cloud->points[i].z;
-
-      vtkSmartPointer<vtkCubeSource> unn_cube_source = vtkSmartPointer<vtkCubeSource>::New ();
-
-      unn_cube_source->SetBounds (x - s, x + s, y - s, y + s, z - s, z + s);
-      unn_cube_source->Update ();
+      fre_cube_source->SetBounds (x - s, x + s, y - s, y + s, z - s, z + s);
+      fre_cube_source->Update ();
 
 #if VTK_MAJOR_VERSION < 6
-      unn_append_filter->AddInput (unn_cube_source->GetOutput ());
+      fre_append_filter->AddInput (fre_cube_source->GetOutput ());
 #else
-      unn_append_filter->AddInputData (unn_cube_source->GetOutput ());
+      fre_append_filter->AddInputData (fre_cube_source->GetOutput ());
 #endif
     }
+
+    // Remove duplicate points
+    vtkSmartPointer<vtkCleanPolyData> fre_clean_filter = vtkSmartPointer<vtkCleanPolyData>::New ();
+    fre_clean_filter->SetInputConnection (fre_append_filter->GetOutputPort ());
+    fre_clean_filter->Update ();
+
+    //Create a mapper and actor
+    vtkSmartPointer<vtkPolyDataMapper> fre_multi_mapper = vtkSmartPointer<vtkPolyDataMapper>::New ();
+    fre_multi_mapper->SetInputConnection (fre_clean_filter->GetOutputPort ());
+    vtkSmartPointer<vtkActor> fre_multi_actor = vtkSmartPointer<vtkActor>::New ();
+    fre_multi_actor->SetMapper (fre_multi_mapper);
+    fre_multi_actor->GetProperty ()->SetColor (0.0, 1.0, 0.0);
+    fre_multi_actor->GetProperty ()->SetAmbient (1.0);
+    fre_multi_actor->GetProperty ()->SetLineWidth (1);
+    fre_multi_actor->GetProperty ()->EdgeVisibilityOn ();
+    fre_multi_actor->GetProperty ()->SetOpacity (1.0);
+    fre_multi_actor->GetProperty ()->SetRepresentationToWireframe ();
+
+    // Add the actor to the scene
+    viewer->getRenderWindow ()->GetRenderers ()->GetFirstRenderer ()->AddActor (fre_multi_actor);
   }
-
-  // Remove duplicate points
-  vtkSmartPointer<vtkCleanPolyData> unn_clean_filter = vtkSmartPointer<vtkCleanPolyData>::New ();
-  unn_clean_filter->SetInputConnection (unn_append_filter->GetOutputPort ());
-  unn_clean_filter->Update ();
-
-  //Create a mapper and actor
-  vtkSmartPointer<vtkPolyDataMapper> unn_multi_mapper = vtkSmartPointer<vtkPolyDataMapper>::New ();
-  unn_multi_mapper->SetInputConnection (unn_clean_filter->GetOutputPort ());
-  vtkSmartPointer<vtkActor> unn_multi_actor = vtkSmartPointer<vtkActor>::New ();
-  unn_multi_actor->SetMapper (unn_multi_mapper);
-  unn_multi_actor->GetProperty ()->SetColor (0.0, 1.0, 0.0);
-  unn_multi_actor->GetProperty ()->SetAmbient (1.0);
-  unn_multi_actor->GetProperty ()->SetLineWidth (1);
-  unn_multi_actor->GetProperty ()->EdgeVisibilityOn ();
-  unn_multi_actor->GetProperty ()->SetOpacity (1.0);
-  unn_multi_actor->GetProperty ()->SetRepresentationToWireframe ();
-
-  // Add the actor to the scene
-  viewer->getRenderWindow ()->GetRenderers ()->GetFirstRenderer ()->AddActor (unn_multi_actor);
 
   // Render and interact
   viewer->getRenderWindow ()->Render ();

@@ -77,7 +77,7 @@ namespace YAML {
 
 using namespace std;
 
-Object::Object(){
+Object::Object():_octree(0.05){
   _model = "";
   _position.setZero();
   _min.setZero();
@@ -85,11 +85,9 @@ Object::Object(){
   _color.setZero();
   _cloud = PointCloud::Ptr (new PointCloud());
   _resolution = 0.05;
-  _octree = Octree::Ptr (new Octree(_resolution));
   _unn_voxel_cloud = PointCloud::Ptr (new PointCloud());
   _fre_voxel_cloud = PointCloud::Ptr (new PointCloud());
   _occ_voxel_cloud = PointCloud::Ptr (new PointCloud());
-  _s=0;
 }
 
 Object::Object(const string &model_,
@@ -103,22 +101,12 @@ Object::Object(const string &model_,
   _min(min_),
   _max(max_),
   _color(color_),
-  _cloud(cloud_){
-  _resolution = 0.05;
-  _octree = Octree::Ptr (new Octree(_resolution));
+  _cloud(cloud_),
+  _resolution(0.05),
+  _octree(_resolution){
   _unn_voxel_cloud = PointCloud::Ptr (new PointCloud());
   _fre_voxel_cloud = PointCloud::Ptr (new PointCloud());
   _occ_voxel_cloud = PointCloud::Ptr (new PointCloud());
-  _s=0;
-
-  _octree->setInputCloud(_cloud);
-  _octree->defineBoundingBox();
-  _octree->addPointsFromInputCloud();
-
-  int depth = static_cast<int> (_octree->getTreeDepth());
-  if (depth == 0)
-    depth = 1;
-  _s = std::sqrt (_octree->getVoxelSquaredSideLen (depth)) / 2.0;
 }
 
 bool Object::operator <(const Object &o) const{
@@ -161,100 +149,49 @@ void Object::merge(const ObjectPtr & o){
   _voxelizer.filter(*cloud_filtered);
 }
 
-void Object::computeOccupancy(const Eigen::Isometry3f &T,
-                              const Eigen::Vector2i & top_left,
-                              const Eigen::Vector2i & bottom_right){
+void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr & cloud){
 
-  if(_cloud->empty())
+  if(cloud->empty())
     return;
 
-  std::cerr << _model << " => ";
+  octomap::Pointcloud scan;
+  for(const Point& pt : cloud->points)
+    scan.push_back(pt.x,pt.y,pt.z);
 
-  Eigen::Matrix3f K;
-  K << 554.25,    0.0, 320.5,
-      0.0, 554.25, 240.5,
-      0.0,    0.0,   1.0;
-  Eigen::Matrix3f inverse_camera_matrix = K.inverse();
+  octomap::point3d origin(T.translation().x(),T.translation().y(),T.translation().z());
+  _octree.insertPointCloud(scan,origin);
 
-  //camera offset
-  Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
-  camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
-
-  // ray casting
-  int occ=0,fre=0,unn=0;
-  Eigen::Vector3f origin=T.translation();
-  Eigen::Vector3f end = Eigen::Vector3f::Zero();
-  Octree::AlignedPointTVector voxels;
+  bool showAll = true;
+  int cnt_occupied_thres, cnt_occupied, cnt_free_thres, cnt_free;
+  octomap::point3d p;
   Point pt;
-  std::vector<int> indices;
-  std::vector<int> all_indices;
-  all_indices.clear();
+  _occ_voxel_cloud->clear();
+  _fre_voxel_cloud->clear();
+  for(octomap::OcTree::tree_iterator it = _octree.begin_tree(_octree.getTreeDepth()),end=_octree.end_tree(); it!= end; ++it) {
+    if (it.isLeaf()) {
+      if (_octree.isNodeOccupied(*it)){ // occupied voxels
+        if (_octree.isNodeAtThreshold(*it))
+          ++cnt_occupied_thres;
+        else
+          ++cnt_occupied;
 
-  for (int r=top_left.x(); r<bottom_right.x(); r=r+10)
-    for (int c=top_left.y(); c<bottom_right.y(); c=c+10){
-
-      end=inverse_camera_matrix*Eigen::Vector3f(c,r,1);
-      end.normalize();
-      end=2*end;
-      end=camera_offset*end;
-      end=T*end;
-
-      voxels.clear();
-      _octree->getApproxIntersectedVoxelCentersBySegment(origin, end, voxels, 0.5);
-
-      bool hit=false;
-      for(int i =0;i<voxels.size();++i){
-        pt.x = voxels[i].x;
-        pt.y = voxels[i].y;
-        pt.z = voxels[i].z;
-
-        if(!inRange(pt))
-          continue;
-
-        indices.clear();
-        bool found=_octree->voxelSearch(pt,indices);
-        if(!found){
-          if(hit){
-            //UNKNOWN
-            pt.r = 0;
-            pt.g = 1.0;
-            pt.b = 0;
-            _unn_voxel_cloud->points.push_back(pt);
-            unn++;
-            continue;
-          }
-          //FREE
-          //          _fre_voxel_cloud->points.push_back(pt);
-          fre++;
-          continue;
-        }
-        if(indices.size()){
-          //OCCUPIED
-          all_indices.insert(all_indices.end(),indices.begin(),indices.end());
-          pt.r = 0;
-          pt.g = 0;
-          pt.b = 1.0;
-          _occ_voxel_cloud->points.push_back(pt);
-          occ++;
-          if(!hit)
-            hit=true;
-          continue;
-        }
+        p = it.getCoordinate();
+        pt.x = p.x();
+        pt.y = p.y();
+        pt.z = p.z();
+        _occ_voxel_cloud->points.push_back(pt);
+      }
+      else if (showAll) { // freespace voxels
+        if (_octree.isNodeAtThreshold(*it))
+          ++cnt_free_thres;
+        else
+          ++cnt_free;
+        p = it.getCoordinate();
+        pt.x = p.x();
+        pt.y = p.y();
+        pt.z = p.z();
+        _fre_voxel_cloud->points.push_back(pt);
       }
     }
-  std::cerr << "occ: " << occ << " - ";
-  std::cerr << "fre: " << fre << " - ";
-  std::cerr << "unn: " << unn << std::endl;
-
-//  for(int idx : all_indices)
-//    _cloud->points.erase(_cloud->begin()+idx);
-
-  for(int i=0; i<_occ_voxel_cloud->points.size(); ++i){
-    _octree->deleteVoxelAtPoint(_occ_voxel_cloud->points[i]);
-    _octree->addPointToCloud(_occ_voxel_cloud->points[i],_cloud);
-  }
-
-  for(int i=0; i<_unn_voxel_cloud->points.size(); ++i){
-    _octree->addPointToCloud(_unn_voxel_cloud->points[i],_cloud);
   }
 }

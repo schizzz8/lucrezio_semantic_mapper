@@ -14,17 +14,13 @@
 #include <pcl/common/norms.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
-#include <pcl/octree/octree_pointcloud_voxelcentroid.h>
-#include <pcl/octree/octree_impl.h>
-#include <pcl/octree/octree_search.h>
-#include <pcl/common/centroid.h>
 
+#include <octomap/OcTree.h>
 
 #include <yaml-cpp/yaml.h>
 
 typedef pcl::PointXYZRGB Point;
 typedef pcl::PointCloud<Point> PointCloud;
-typedef pcl::octree::OctreePointCloudSearch<Point> Octree;
 
 class Object;
 typedef std::shared_ptr<Object> ObjectPtr;
@@ -52,10 +48,8 @@ class Object {
            const Eigen::Vector3f &color_=Eigen::Vector3f::Zero(),
            const PointCloud::Ptr &cloud_=0);
 
-
     bool operator < (const Object &o) const;
     bool operator == (const Object &o) const;
-
 
     //setters and getters
     inline const std::string& model() const {return _model;}
@@ -75,7 +69,8 @@ class Object {
     inline const PointCloud::Ptr &freVoxelCloud() const {return _fre_voxel_cloud;}
     inline const PointCloud::Ptr &occVoxelCloud() const {return _occ_voxel_cloud;}
 
-    inline const float s() const {return _s;}
+    inline const float resolution() const {return _resolution;}
+    inline octomap::OcTree octree() const {return _octree;}
 
     //check if a point falls in the bounding box
     bool inRange(const Point &point) const;
@@ -84,12 +79,7 @@ class Object {
     void merge(const ObjectPtr &o);
 
     //compute occupancy
-    void computeOccupancy(const Eigen::Isometry3f& T,
-                          const Eigen::Vector2i& top_left = Eigen::Vector2i::Zero(),
-                          const Eigen::Vector2i& bottom_right = Eigen::Vector2i(480,640));
-
-    inline const Octree::Ptr& octree() const {return _octree;}
-    inline Octree::Ptr& octree() {return _octree;}
+    void updateOccupancy(const Eigen::Isometry3f& T, const PointCloud::Ptr &cloud);
 
   private:
 
@@ -111,11 +101,8 @@ class Object {
 
     pcl::VoxelGrid<Point> _voxelizer;
 
-    Octree::Ptr _octree;
-
     float _resolution;
-    float _s;
-
+    octomap::OcTree _octree;
     PointCloud::Ptr _occ_voxel_cloud;
     PointCloud::Ptr _fre_voxel_cloud;
     PointCloud::Ptr _unn_voxel_cloud;
