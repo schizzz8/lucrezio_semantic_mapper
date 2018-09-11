@@ -78,8 +78,6 @@ Eigen::Vector3f SemanticExplorer::computeNBV(){
   Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
   camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
 
-  octomap::point3d pt;
-
   //simulate view
   for(int i=-1; i<=1; ++i)
     for(int j=-1; j<=1; ++j){
@@ -114,10 +112,6 @@ Eigen::Vector3f SemanticExplorer::computeNBV(){
           rays.push_back(std::make_pair(T.translation(),end));
 
           octomap::point3d dir(end.x(),end.y(),end.z());
-//          if(_nearest_object->octree().castRay(origin,dir,pt))
-//            occ++;
-//          else
-//            unn++;
           ray.clear();
           if(_nearest_object->octree().computeRay(origin,dir,ray)){
             for(const octomap::point3d r : ray){
