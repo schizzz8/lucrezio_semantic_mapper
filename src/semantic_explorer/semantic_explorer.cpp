@@ -136,7 +136,6 @@ Eigen::Vector3f SemanticExplorer::computeNBV(){
                 unn++;
             }
           }
-
         }
       std::cerr << std::endl << "occ: " << occ << " - unn: " << unn << " - fre: " << fre << std::endl;
 

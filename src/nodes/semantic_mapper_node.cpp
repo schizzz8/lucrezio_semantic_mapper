@@ -45,6 +45,9 @@ public:
     _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
     _cloud_pub = _nh.advertise<PointCloud>("visualization_cloud",1);
     _marker_pub = _nh.advertise<visualization_msgs::Marker>("visualization_marker",1);
+
+    _camera_offset.setIdentity();
+    _camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
   }
 
   void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
@@ -66,21 +69,27 @@ public:
 
     _last_timestamp = image_stamp;
 
-    //set input data
+    //get camera pose
+    _camera_transform = poseMsg2eigen(logical_image_msg->pose);
+
+    //get models
     ModelVector models = logicalImageToModels(logical_image_msg);
+
+    //get point cloud
+    PointCloud::Ptr transformed_cloud (new PointCloud ());
+    pcl::transformPointCloud (*depth_points_msg, *transformed_cloud, _camera_transform*_camera_offset);
+
+    //compute detections
+    _detector.setCameraTransform(_camera_transform);
     _detector.setModels(models);
     _detector.setInputCloud(depth_points_msg);
-
     _detector.setupDetections();
     _detector.compute();
     const DetectionVector &detections = _detector.detections();
 
-    //get camera pose
-    _camera_transform = poseMsg2eigen(logical_image_msg->pose);
-    _mapper.setGlobalT(_camera_transform);
-
     //extract objects from detections
-    _mapper.extractObjects(detections,depth_points_msg);
+    _mapper.setGlobalT(_camera_transform);
+    _mapper.extractObjects(detections,transformed_cloud);
 
     //data association
     _mapper.findAssociations();
@@ -143,6 +152,7 @@ protected:
   message_filters::Synchronizer<FilterSyncPolicy> _synchronizer;
 
   Eigen::Isometry3f _camera_transform;
+  Eigen::Isometry3f _camera_offset;
 
   //computing modules
   ObjectDetector _detector;
