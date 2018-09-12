@@ -38,7 +38,7 @@ class Object {
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
-    //constructors
+    //ctors
     Object();
 
     Object(const std::string &model_,
@@ -47,6 +47,9 @@ class Object {
            const Eigen::Vector3f &max_=Eigen::Vector3f::Zero(),
            const Eigen::Vector3f &color_=Eigen::Vector3f::Zero(),
            const PointCloud::Ptr &cloud_=0);
+
+    //dtor
+    ~Object();
 
     bool operator < (const Object &o) const;
     bool operator == (const Object &o) const;
@@ -70,7 +73,7 @@ class Object {
     inline const PointCloud::Ptr &occVoxelCloud() const {return _occ_voxel_cloud;}
 
     inline const float resolution() const {return _resolution;}
-    inline octomap::OcTree octree() const {return _octree;}
+    inline octomap::OcTree* octree() const {return _octree;}
 
     //check if a point falls in the bounding box
     bool inRange(const Point &point) const;
@@ -83,8 +86,10 @@ class Object {
 
   private:
 
+    //name
     std::string _model;
 
+    //position
     Eigen::Vector3f _position;
 
     //lower vertex of the object bounding box
@@ -102,7 +107,7 @@ class Object {
     pcl::VoxelGrid<Point> _voxelizer;
 
     float _resolution;
-    octomap::OcTree _octree;
+    octomap::OcTree* _octree;
     PointCloud::Ptr _occ_voxel_cloud;
     PointCloud::Ptr _fre_voxel_cloud;
     PointCloud::Ptr _unn_voxel_cloud;

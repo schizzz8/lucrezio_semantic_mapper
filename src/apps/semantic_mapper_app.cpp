@@ -135,8 +135,8 @@ int main(int argc, char** argv){
         explorer.setObjects(mapper.globalMap());
         if(explorer.findNearestObject()){
           std::cerr << "Nearest: " << explorer.nearestObject()->model() << std::endl;
-//          Eigen::Vector3f nbv = explorer.computeNBV();
-//          std::cerr << "NBV: " << nbv.transpose() << std::endl;
+          Eigen::Vector3f nbv = explorer.computeNBV();
+          std::cerr << "NBV: " << nbv.transpose() << std::endl;
         }
         if(first){
           spin=!spin;

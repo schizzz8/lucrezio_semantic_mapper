@@ -77,7 +77,7 @@ namespace YAML {
 
 using namespace std;
 
-Object::Object():_octree(0.05){
+Object::Object():_octree(new octomap::OcTree(0.05)){
   _model = "";
   _position.setZero();
   _min.setZero();
@@ -103,10 +103,14 @@ Object::Object(const string &model_,
   _color(color_),
   _cloud(cloud_),
   _resolution(0.05),
-  _octree(_resolution){
+  _octree(new octomap::OcTree(_resolution)){
   _unn_voxel_cloud = PointCloud::Ptr (new PointCloud());
   _fre_voxel_cloud = PointCloud::Ptr (new PointCloud());
   _occ_voxel_cloud = PointCloud::Ptr (new PointCloud());
+}
+
+Object::~Object(){
+  delete _octree;
 }
 
 bool Object::operator <(const Object &o) const{
@@ -159,33 +163,22 @@ void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr &
     scan.push_back(pt.x,pt.y,pt.z);
 
   octomap::point3d origin(T.translation().x(),T.translation().y(),T.translation().z());
-  _octree.insertPointCloud(scan,origin);
+  _octree->insertPointCloud(scan,origin);
 
-  bool showAll = true;
-  int cnt_occupied_thres, cnt_occupied, cnt_free_thres, cnt_free;
   octomap::point3d p;
   Point pt;
   _occ_voxel_cloud->clear();
   _fre_voxel_cloud->clear();
-  for(octomap::OcTree::tree_iterator it = _octree.begin_tree(_octree.getTreeDepth()),end=_octree.end_tree(); it!= end; ++it) {
+  for(octomap::OcTree::tree_iterator it = _octree->begin_tree(_octree->getTreeDepth()),end=_octree->end_tree(); it!= end; ++it) {
     if (it.isLeaf()) {
-      if (_octree.isNodeOccupied(*it)){ // occupied voxels
-        if (_octree.isNodeAtThreshold(*it))
-          ++cnt_occupied_thres;
-        else
-          ++cnt_occupied;
-
+      if (_octree->isNodeOccupied(*it)){ // occupied voxels
         p = it.getCoordinate();
         pt.x = p.x();
         pt.y = p.y();
         pt.z = p.z();
         _occ_voxel_cloud->points.push_back(pt);
       }
-      else if (showAll) { // freespace voxels
-        if (_octree.isNodeAtThreshold(*it))
-          ++cnt_free_thres;
-        else
-          ++cnt_free;
+      else { // free voxels
         p = it.getCoordinate();
         pt.x = p.x();
         pt.y = p.y();

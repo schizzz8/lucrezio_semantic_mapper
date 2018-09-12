@@ -35,13 +35,11 @@ bool SemanticExplorer::findNearestObject(){
   for(ObjectSet::iterator it=_objects.begin(); it!=_objects.end(); ++it){
     const Object& o = *it;
     float dist=(o.position()-_camera_pose.translation()).norm();
-//    std::cerr << "Object: " << o.model() << " - Dist: " << dist << std::endl;
     if(dist<min_dist){
       min_dist=dist;
       _nearest_object=&o;
     }
   }
-
   return _nearest_object;
 }
 
@@ -87,6 +85,7 @@ Eigen::Vector3f SemanticExplorer::computeNBV(){
       if(i!=0 && j!=0)
         continue;
 
+      //computing view pose
       Eigen::Isometry3f T=Eigen::Isometry3f::Identity();
       Eigen::Vector3f v;
       v << _nearest_object->position().x() + i,
@@ -94,47 +93,53 @@ Eigen::Vector3f SemanticExplorer::computeNBV(){
           std::atan2(-j,-i);
       T.translation() = Eigen::Vector3f(v.x(),v.y(),0.6);
       T.linear() = Eigen::AngleAxisf(v.z(),Eigen::Vector3f::UnitZ()).matrix();
+
+      //set ray origin to camera pose
       octomap::point3d origin(v.x(),v.y(),0.6);
       std::cerr << v.transpose() << " - ";
 
-      // ray casting
+      //generate rays
       Eigen::Vector3f end = Eigen::Vector3f::Zero();
       int occ=0,fre=0,unn=0;
       std::vector<octomap::point3d> ray;
-      for (int r=0; r<480; r=r+20)
-        for (int c=0; c<640; c=c+20){
+      for (int r=0; r<480; r=r+40)
+        for (int c=0; c<640; c=c+40){
+
+          //compute ray endpoint
           end=inverse_camera_matrix*Eigen::Vector3f(c,r,1);
           end.normalize();
           end=camera_offset*end;
           end=T*end;
+          octomap::point3d dir(end.x(),end.y(),end.z());
 
-          //store rays
+          //store ray
           rays.push_back(std::make_pair(T.translation(),end));
 
-          octomap::point3d dir(end.x(),end.y(),end.z());
+          //ray casting
           ray.clear();
-          if(_nearest_object->octree().computeRay(origin,dir,ray)){
+          if(_nearest_object->octree()->computeRay(origin,dir,ray)){
             for(const octomap::point3d r : ray){
-              octomap::OcTreeNode* n = _nearest_object->octree().search(r);
+              octomap::OcTreeNode* n = _nearest_object->octree()->search(r);
               if(n){
                 double value = n->getOccupancy();
-                if(value==0.5)
-                  unn++;
                 if(value>0.5)
                   occ++;
-              }
+                else
+                  fre++;
+              } else
+                unn++;
             }
           }
 
         }
-      std::cerr << std::endl << "occ: " << occ << " - unn: " << unn << std::endl;
+      std::cerr << std::endl << "occ: " << occ << " - unn: " << unn << " - fre: " << fre << std::endl;
 
       if(unn>unn_max){
         unn_max = unn;
         nbv=v;
         _rays = rays;
       }
-
+      rays.clear();
     }
   return nbv;
 }
