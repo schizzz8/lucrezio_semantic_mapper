@@ -108,6 +108,7 @@ Eigen::Vector3f SemanticExplorer::computeNBV(){
           //compute ray endpoint
           end=inverse_camera_matrix*Eigen::Vector3f(c,r,1);
           end.normalize();
+          end=5*end;
           end=camera_offset*end;
           end=T*end;
           octomap::point3d dir(end.x(),end.y(),end.z());
@@ -118,14 +119,19 @@ Eigen::Vector3f SemanticExplorer::computeNBV(){
           //ray casting
           ray.clear();
           if(_nearest_object->octree()->computeRay(origin,dir,ray)){
-            for(const octomap::point3d r : ray){
-              octomap::OcTreeNode* n = _nearest_object->octree()->search(r);
+            for(const octomap::point3d voxel : ray){
+
+              if(!_nearest_object->inRange(voxel.x(),voxel.y(),voxel.z()))
+                continue;
+
+              octomap::OcTreeNode* n = _nearest_object->octree()->search(voxel);
               if(n){
                 double value = n->getOccupancy();
                 if(value>0.5)
                   occ++;
                 else
                   fre++;
+                break;
               } else
                 unn++;
             }

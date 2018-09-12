@@ -103,11 +103,10 @@ Object::Object(const string &model_,
   _color(color_),
   _cloud(cloud_),
   _resolution(0.05),
-  _octree(new octomap::OcTree(_resolution)){
-  _unn_voxel_cloud = PointCloud::Ptr (new PointCloud());
-  _fre_voxel_cloud = PointCloud::Ptr (new PointCloud());
-  _occ_voxel_cloud = PointCloud::Ptr (new PointCloud());
-}
+  _octree(new octomap::OcTree(_resolution)),
+  _unn_voxel_cloud(new PointCloud()),
+  _fre_voxel_cloud(new PointCloud()),
+  _occ_voxel_cloud(new PointCloud()){}
 
 Object::~Object(){
   delete _octree;
@@ -125,6 +124,12 @@ bool Object::inRange(const Point &point) const{
   return (point.x >= _min.x() && point.x <= _max.x() &&
           point.y >= _min.y() && point.y <= _max.y() &&
           point.z >= _min.z() && point.z <= _max.z());
+}
+
+bool Object::inRange(const float &x, const float &y, const float &z) const{
+  return (x >= _min.x() && x <= _max.x() &&
+          y >= _min.y() && y <= _max.y() &&
+          z >= _min.z() && z <= _max.z());
 }
 
 void Object::merge(const ObjectPtr & o){
@@ -171,15 +176,18 @@ void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr &
   _fre_voxel_cloud->clear();
   for(octomap::OcTree::tree_iterator it = _octree->begin_tree(_octree->getTreeDepth()),end=_octree->end_tree(); it!= end; ++it) {
     if (it.isLeaf()) {
-      if (_octree->isNodeOccupied(*it)){ // occupied voxels
-        p = it.getCoordinate();
+      p = it.getCoordinate();
+
+      if(!inRange(p.x(),p.y(),p.z()))
+        continue;
+
+      if (_octree->isNodeOccupied(*it)){ // occupied voxels        
         pt.x = p.x();
         pt.y = p.y();
         pt.z = p.z();
         _occ_voxel_cloud->points.push_back(pt);
       }
       else { // free voxels
-        p = it.getCoordinate();
         pt.x = p.x();
         pt.y = p.y();
         pt.z = p.z();
