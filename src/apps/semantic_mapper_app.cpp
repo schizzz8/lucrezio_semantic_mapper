@@ -30,16 +30,38 @@ Vector7f t2vFull(const Eigen::Isometry3f& iso){
 }
 
 bool spin=true;
+bool show_input_cloud=false;
+bool show_models=false;
+bool show_detections=false;
+bool show_map=false;
+bool show_octree=false;
+bool show_rays=false;
 
 void deserializeTransform(const char * filename, Eigen::Isometry3f &transform);
 void deserializeModels(const char * filename, ModelVector & models);
 
 void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void* viewer_void);
 
-void showCubes(double side,
-               const PointCloud::Ptr& occ_cloud,
-               const PointCloud::Ptr& fre_cloud,
-               Visualizer::Ptr& viewer);
+void showInputCloud(const PointCloud::Ptr& transformed_cloud,
+                    Visualizer::Ptr& viewer);
+
+void showModels(const ModelVector& models,
+                Visualizer::Ptr& viewer);
+
+void showDetections(const PointCloud::Ptr& transformed_cloud,
+                    const DetectionVector &detections,
+                    Visualizer::Ptr &viewer);
+
+void showMap(const SemanticMap* map,
+             Visualizer::Ptr &viewer);
+
+void showOctree(double side,
+                const PointCloud::Ptr& occ_cloud,
+                const PointCloud::Ptr& fre_cloud,
+                Visualizer::Ptr& viewer);
+
+void showRays(const Vector3fPairVector& rays,
+              Visualizer::Ptr& viewer);
 
 int main(int argc, char** argv){
 
@@ -50,43 +72,33 @@ int main(int argc, char** argv){
   Eigen::Isometry3f camera_transform = Eigen::Isometry3f::Identity();
   ModelVector models;
   PointCloud::Ptr cloud (new PointCloud());
-  PointCloud::Ptr detection_cloud (new PointCloud());
-  Point pt,origin_pt,end_pt;
-
-  //K
-  Eigen::Matrix3f K;
-  K << 554.25,    0.0, 320.5,
-      0.0, 554.25, 240.5,
-      0.0,    0.0,   1.0;
-  Eigen::Matrix3f inverse_camera_matrix = K.inverse();
+  PointCloud::Ptr transformed_cloud (new PointCloud ());
 
   //camera offset
   Eigen::Isometry3f camera_offset = Eigen::Isometry3f::Identity();
   camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
 
-  PointCloud::Ptr transformed_cloud (new PointCloud ());
-
-  std::string line;
-  std::ifstream data(argv[1]);
-
+  //viewer
   Visualizer::Ptr viewer (new Visualizer ("Viewer"));
   viewer->setBackgroundColor (0, 0, 0);
   viewer->addCoordinateSystem(0.25);
   viewer->registerKeyboardCallback(keyboardEventOccurred, (void*)&viewer);
   viewer->initCameraParameters ();
 
+  //read data
   bool first=true;
-
+  std::string line;
+  std::ifstream data(argv[1]);
   if(data.is_open()){
     while(!viewer->wasStopped()){
 
+      // Clear the viewer
+      viewer->removeAllShapes();
+      viewer->removeAllPointClouds();
+
       if(spin && std::getline(data,line)){
 
-        // Clear the viewer
-        viewer->removeAllShapes();
-        viewer->removeAllPointClouds();
-
-        // read input
+        //parse line
         std::istringstream iss(line);
         double timestamp;
         std::string cloud_filename,transform_filename,models_filename;
@@ -113,88 +125,43 @@ int main(int argc, char** argv){
 
         //compute detections
         detector.compute();
-        const DetectionVector &detections = detector.detections();
 
         //update semantic map
-        mapper.extractObjects(detections,cloud);
+        mapper.extractObjects(detector.detections(),cloud);
         mapper.findAssociations();
         mapper.mergeMaps();
-        const SemanticMap* map = mapper.globalMap();
 
         //compute NBV
-        explorer.setObjects(map);
+        explorer.setObjects(mapper.globalMap());
         if(explorer.findNearestObject()){
           std::cerr << "Nearest: " << explorer.nearestObject()->model() << std::endl;
-          Eigen::Vector3f nbv = explorer.computeNBV();
-          std::cerr << "NBV: " << nbv.transpose() << std::endl;
-
-          Vector3fPairVector rays = explorer.rays();
-          for(int i=0; i<rays.size(); ++i){
-            char buffer[30];
-            sprintf(buffer,"line_%d",i);
-            Eigen::Vector3f origin=rays[i].first;
-            Eigen::Vector3f end=rays[i].second;
-            Point o;
-            o.x=origin.x();
-            o.y=origin.y();
-            o.z=origin.z();
-            Point e;
-            e.x=end.x();
-            e.y=end.y();
-            e.z=end.z();
-            viewer->addLine(o,e,buffer);
-          }
-
-          showCubes(0.05,explorer.nearestObject()->occVoxelCloud(),explorer.nearestObject()->freVoxelCloud(),viewer);
+//          Eigen::Vector3f nbv = explorer.computeNBV();
+//          std::cerr << "NBV: " << nbv.transpose() << std::endl;
         }
-
-        // Visualization
-
-        //        for(const Model& m : detector.models())
-        //          viewer->addCube(m.min().x(),m.max().x(),m.min().y(),m.max().y(),m.min().z(),m.max().z(),0.0,0.0,1.0,m.type());
-
-        //        for(const Detection& d : detections){
-        //          const std::vector<Eigen::Vector2i>& pixels = d.pixels();
-        //          for(const Eigen::Vector2i& p : pixels){
-        //            pt=transformed_cloud->at(p.y(),p.x());
-        //            pt.r=d.color().x();
-        //            pt.g=d.color().y();
-        //            pt.b=d.color().z();
-        //            detection_cloud->push_back(pt);
-        //          }
-        //        }
-        //        pcl::visualization::PointCloudColorHandlerRGBField<Point> rgb(transformed_cloud);
-        //        viewer->addPointCloud<Point> (transformed_cloud, rgb, cloud_filename);
-        //        pcl::visualization::PointCloudColorHandlerRGBField<Point> rgb(detection_cloud);
-        //        viewer->addPointCloud<Point> (detection_cloud, rgb, cloud_filename);
-        //        viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, cloud_filename);
-
-        std::cerr << "showing map" << std::endl;
-        for(int i=0;i<map->size();++i){
-          const ObjectPtr& obj = map->at(i);
-//          viewer->addCoordinateSystem (0.25,obj->position().x(),obj->position().y(),obj->position().z());
-//          viewer->addCube(obj->min().x(),obj->max().x(),
-//                          obj->min().y(),obj->max().y(),
-//                          obj->min().z(),obj->max().z(),
-//                          0.0,1.0,0.0,obj->model());
-//          PointCloud::Ptr obj_cloud = obj->cloud();
-//          pcl::visualization::PointCloudColorHandlerRGBField<Point> obj_rgb(obj_cloud);
-//          viewer->addPointCloud<Point> (obj_cloud, obj_rgb, obj->model());
-//          viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, obj->model());
-
-        }
-
         if(first){
           spin=!spin;
           first=false;
         }
       }
+
+      // Visualization
+      if(show_input_cloud)
+        showInputCloud(transformed_cloud,viewer);
+      if(show_models)
+        showModels(detector.models(),viewer);
+      if(show_detections)
+        showDetections(transformed_cloud,detector.detections(),viewer);
+      if(show_map)
+        showMap(mapper.globalMap(),viewer);
+      if(show_octree)
+        showOctree(0.05,explorer.nearestObject()->occVoxelCloud(),explorer.nearestObject()->freVoxelCloud(),viewer);
+      if(show_rays)
+        showRays(explorer.rays(),viewer);
+
       viewer->spinOnce(100);
       boost::this_thread::sleep (boost::posix_time::microseconds (100000));
     }
   }
-
-
   return 0;
 }
 
@@ -254,20 +221,113 @@ void deserializeModels(const char * filename, ModelVector & models){
 void keyboardEventOccurred(const pcl::visualization::KeyboardEvent &event, void* viewer_void){
   Visualizer::Ptr viewer = *static_cast<Visualizer::Ptr*>(viewer_void);
   if (event.getKeySym() == "p" && event.keyDown()){
-    spin = !spin;
+    spin ^= 1;
     if(spin)
       std::cerr << "PLAY" << std::endl;
     else
       std::cerr << "PAUSE" << std::endl;
   }
+  if (event.getKeySym() == "i" && event.keyDown()){
+    show_input_cloud ^= 1;
+    if(show_input_cloud)
+      std::cerr << "SHOWING INPUT CLOUD" << std::endl;
+    else
+      std::cerr << "INPUT CLOUD HIDDEN" << std::endl;
+  }
+  if (event.getKeySym() == "m" && event.keyDown()){
+    show_models ^= 1;
+    if(show_models)
+      std::cerr << "SHOWING MODELS" << std::endl;
+    else
+      std::cerr << "MODELS HIDDEN" << std::endl;
+  }
+  if (event.getKeySym() == "d" && event.keyDown()){
+    show_detections ^= 1;
+    if(show_detections)
+      std::cerr << "SHOWING DETECTIONS" << std::endl;
+    else
+      std::cerr << "DETECTIONS HIDDEN" << std::endl;
+  }
+  if (event.getKeySym() == "s" && event.keyDown()){
+    show_map ^= 1;
+    if(show_map)
+      std::cerr << "SHOWING SEMANTIC MAP" << std::endl;
+    else
+      std::cerr << "SEMANTIC MAP HIDDEN" << std::endl;
+  }
+  if (event.getKeySym() == "o" && event.keyDown()){
+    show_octree ^= 1;
+    if(show_octree)
+      std::cerr << "SHOWING OCTREE" << std::endl;
+    else
+      std::cerr << "OCTREE HIDDEN" << std::endl;
+  }
+  if (event.getKeySym() == "r" && event.keyDown()){
+    show_rays ^= 1;
+    if(show_rays)
+      std::cerr << "SHOWING RAYS" << std::endl;
+    else
+      std::cerr << "RAYS HIDDEN" << std::endl;
+  }
   //  if (event.getKeySym() == "h" && event.keyDown())
   //    std::cout << "'h' was pressed" << std::endl;
 }
 
-void showCubes(double s,
-               const PointCloud::Ptr& occ_cloud,
-               const PointCloud::Ptr& fre_cloud,
-               Visualizer::Ptr& viewer){
+void showInputCloud(const PointCloud::Ptr &transformed_cloud,
+                    Visualizer::Ptr &viewer){
+  pcl::visualization::PointCloudColorHandlerRGBField<Point> rgb(transformed_cloud);
+  viewer->addPointCloud<Point> (transformed_cloud, rgb, "input_cloud");
+}
+
+void showModels(const ModelVector& models,
+                Visualizer::Ptr& viewer){
+  for(const Model& m : models)
+    viewer->addCube(m.min().x(),m.max().x(),m.min().y(),m.max().y(),m.min().z(),m.max().z(),0.0,0.0,1.0,m.type());
+}
+
+void showDetections(const PointCloud::Ptr& transformed_cloud,
+                    const DetectionVector &detections,
+                    Visualizer::Ptr &viewer){
+  PointCloud::Ptr detection_cloud (new PointCloud());
+  for(const Detection& d : detections){
+    Point pt;
+    const std::vector<Eigen::Vector2i>& pixels = d.pixels();
+    for(const Eigen::Vector2i& p : pixels){
+      pt=transformed_cloud->at(p.y(),p.x());
+      pt.r=d.color().x();
+      pt.g=d.color().y();
+      pt.b=d.color().z();
+      detection_cloud->push_back(pt);
+    }
+  }
+  pcl::visualization::PointCloudColorHandlerRGBField<Point> rgb(detection_cloud);
+  viewer->addPointCloud<Point> (detection_cloud, rgb, "detection_cloud");
+  viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, "detection_cloud");
+}
+
+void showMap(const SemanticMap *map,
+             Visualizer::Ptr &viewer){
+  for(int i=0;i<map->size();++i){
+    const ObjectPtr& obj = map->at(i);
+    viewer->addCoordinateSystem (0.25,obj->position().x(),obj->position().y(),obj->position().z());
+    viewer->addCube(obj->min().x(),obj->max().x(),
+                    obj->min().y(),obj->max().y(),
+                    obj->min().z(),obj->max().z(),
+                    0.0,1.0,0.0,obj->model());
+    PointCloud::Ptr obj_cloud = obj->cloud();
+    pcl::visualization::PointCloudColorHandlerRGBField<Point> obj_rgb(obj_cloud);
+    viewer->addPointCloud<Point> (obj_cloud, obj_rgb, obj->model());
+    viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1, obj->model());
+  }
+}
+
+void showOctree(double s,
+                const PointCloud::Ptr& occ_cloud,
+                const PointCloud::Ptr& fre_cloud,
+                Visualizer::Ptr& viewer){
+
+  if(occ_cloud->empty() && occ_cloud->empty())
+    return;
 
   if(occ_cloud->points.size()){
     // process occ cloud
@@ -353,4 +413,23 @@ void showCubes(double s,
 
   // Render and interact
   viewer->getRenderWindow ()->Render ();
+}
+
+void showRays(const Vector3fPairVector &rays,
+              Visualizer::Ptr &viewer){
+  for(int i=0; i<rays.size(); ++i){
+    char buffer[30];
+    sprintf(buffer,"line_%d",i);
+    Eigen::Vector3f origin=rays[i].first;
+    Eigen::Vector3f end=rays[i].second;
+    Point o;
+    o.x=origin.x();
+    o.y=origin.y();
+    o.z=origin.z();
+    Point e;
+    e.x=end.x();
+    e.y=end.y();
+    e.z=end.z();
+    viewer->addLine(o,e,buffer);
+  }
 }
