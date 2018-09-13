@@ -148,14 +148,23 @@ void Object::merge(const ObjectPtr & o){
 
   _position = (_min+_max)/2.0f;
 
+  std::cerr << std::endl << "Merging: " << _model << std::endl;
+  std::cerr << "old: " << _cloud->width << "x" << _cloud->height << "\t";
+
   //add new points
   *_cloud += *o->cloud();
+
+  std::cerr << "new: " << _cloud->width << "x" << _cloud->height << std::endl;
 
   //voxelize
   PointCloud::Ptr cloud_filtered (new PointCloud());
   _voxelizer.setInputCloud(_cloud);
   _voxelizer.setLeafSize(0.05f,0.05f,0.05f);
   _voxelizer.filter(*cloud_filtered);
+
+  //update cloud
+  _cloud->clear();
+  *_cloud = *cloud_filtered;
 }
 
 void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr & cloud){
