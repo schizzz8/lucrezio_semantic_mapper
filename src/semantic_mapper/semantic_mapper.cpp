@@ -2,8 +2,8 @@
 
 SemanticMapper::SemanticMapper(){
 
-  _local_map = new SemanticMap();
-  _global_map = new SemanticMap();
+  _local_map = new ObjectPtrVector();
+  _global_map = new ObjectPtrVector();
 
   _associations.clear();
 
@@ -94,9 +94,9 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
     obj_ptr->updateOccupancy(_globalT,cloud);
 
     if(populate_global)
-      _global_map->addObject(obj_ptr);
+      _global_map->push_back(obj_ptr);
     else
-      _local_map->addObject(obj_ptr);
+      _local_map->push_back(obj_ptr);
 
   }
 }
@@ -161,7 +161,7 @@ void SemanticMapper::mergeMaps(){
       global_associated->merge(local);
       merged++;
     } else {
-      _global_map->addObject(local);
+      _global_map->push_back(local);
       added++;
     }
   }

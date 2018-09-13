@@ -7,7 +7,7 @@
 
 #include <object_detector/detection.h>
 
-#include "semantic_map.h"
+#include "object.h"
 
 class SemanticMapper{
   public:
@@ -30,7 +30,7 @@ class SemanticMapper{
     //specialized mergeMaps method
     void mergeMaps();
 
-    const SemanticMap* globalMap() const {return _global_map;}
+    const ObjectPtrVector* globalMap() const {return _global_map;}
 
   protected:
 
@@ -44,10 +44,10 @@ class SemanticMapper{
     bool _global_set;
 
     //map built from the current frame
-    SemanticMap *_local_map;
+    ObjectPtrVector *_local_map;
 
     //actual map that stores objects in a global reference frame and gets updated for each new observation
-    SemanticMap *_global_map;
+    ObjectPtrVector *_global_map;
 
     //this map stores the output of the data-association
     ObjectPtrIdMap _associations;

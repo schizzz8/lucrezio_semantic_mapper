@@ -17,7 +17,7 @@ void MapEvaluator::setReference(const std::string & filename){
   }
 }
 
-void MapEvaluator::setCurrent(const SemanticMap *current){
+void MapEvaluator::setCurrent(const ObjectPtrVector * current){
   if(!current)
     return;
 
@@ -51,7 +51,7 @@ void MapEvaluator::compute(){
   }
 }
 
-void MapEvaluator::storeMap(const SemanticMap *current){
+void MapEvaluator::storeMap(const ObjectPtrVector *current){
   if(!current)
     return;
 

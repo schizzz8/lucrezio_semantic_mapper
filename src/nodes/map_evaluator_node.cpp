@@ -1,6 +1,5 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
-#include <semantic_mapper/semantic_map.h>
 #include "semantic_mapper/object.cpp"
 
 #include <pcl/visualization/pcl_visualizer.h>

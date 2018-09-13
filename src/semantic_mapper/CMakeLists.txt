@@ -1,6 +1,5 @@
 add_library(semantic_mapper_library SHARED
   object.h object.cpp
-  semantic_map.h
   semantic_mapper.h semantic_mapper.cpp
 )
 

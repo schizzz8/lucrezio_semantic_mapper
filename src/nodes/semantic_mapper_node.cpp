@@ -226,7 +226,7 @@ private:
     return models;
   }
 
-  void makeMsgFromMap(lucrezio_semantic_mapper::SemanticMap &sm_msg, const SemanticMap *global_map){
+  void makeMsgFromMap(lucrezio_semantic_mapper::SemanticMap &sm_msg, const ObjectPtrVector *global_map){
     sm_msg.header.stamp = _last_timestamp;
     sm_msg.header.frame_id = "/map";
     for(int i=0; i<global_map->size(); ++i){
@@ -261,7 +261,7 @@ private:
                                          label_image).toImageMsg();
   }
 
-  void makeCloudFromMap(PointCloud::Ptr &cloud, const SemanticMap *global_map){
+  void makeCloudFromMap(PointCloud::Ptr &cloud, const ObjectPtrVector *global_map){
 
     cloud->header.frame_id = "/map";
     cloud->height = 1;
@@ -289,7 +289,7 @@ private:
 
   }
 
-  void makeMarkerFromMap(visualization_msgs::Marker &marker, const SemanticMap *global_map){
+  void makeMarkerFromMap(visualization_msgs::Marker &marker, const ObjectPtrVector *global_map){
     marker.header.frame_id = "/map";
     marker.header.stamp = _last_timestamp;
     marker.ns = "basic_shapes";
