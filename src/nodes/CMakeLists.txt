@@ -27,10 +27,3 @@ target_link_libraries(map_evaluator_node
   ${catkin_LIBRARIES}
 )
 
-add_executable(data_dumper_node
-  data_dumper_node.cpp
-)
-
-target_link_libraries(data_dumper_node
-  ${catkin_LIBRARIES}
-)

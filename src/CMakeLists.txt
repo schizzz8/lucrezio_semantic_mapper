@@ -1,7 +1,6 @@
 add_subdirectory(object_detector)
 add_subdirectory(semantic_mapper)
-add_subdirectory(semantic_explorer)
 add_subdirectory(map_evaluator)
 add_subdirectory(nodes)
-add_subdirectory(apps)
+#add_subdirectory(apps)
 add_subdirectory(utils)
