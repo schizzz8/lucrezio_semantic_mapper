@@ -7,24 +7,16 @@
 #include <lucrezio_simulation_environments/LogicalImage.h>
 #include <tf/tf.h>
 #include <tf/transform_datatypes.h>
-#include <tf/transform_listener.h>
-#include <tf/transform_broadcaster.h>
-#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <message_filters/subscriber.h>
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <sensor_msgs/Joy.h>
 
-#include <object_detector/object_detector.h>
-#include <semantic_mapper/semantic_mapper.h>
-#include <map_evaluator/map_evaluator.h>
-
+#include <semantic_mapper/semantic_map.h>
 #include <lucrezio_semantic_mapper/SemanticMap.h>
 
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
-
-#include <visualization_msgs/Marker.h>
 #include <pcl/io/pcd_io.h>
 
 typedef cv::Mat_<cv::Vec3b> RGBImage;

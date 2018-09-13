@@ -82,14 +82,14 @@ public:
     //compute detections
     _detector.setCameraTransform(_camera_transform);
     _detector.setModels(models);
-    _detector.setInputCloud(depth_points_msg);
+    _detector.setInputCloud(transformed_cloud);
     _detector.setupDetections();
     _detector.compute();
     const DetectionVector &detections = _detector.detections();
 
     //extract objects from detections
     _mapper.setGlobalT(_camera_transform);
-    _mapper.extractObjects(detections,transformed_cloud);
+    _mapper.extractObjects(detections,depth_points_msg);
 
     //data association
     _mapper.findAssociations();
