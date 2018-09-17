@@ -84,8 +84,6 @@ Object::Object():_octree(new octomap::OcTree(0.05)){
   _max.setZero();
   _color.setZero();
   _cloud = PointCloud::Ptr (new PointCloud());
-  _resolution = 0.05;
-  _unn_voxel_cloud = PointCloud::Ptr (new PointCloud());
   _fre_voxel_cloud = PointCloud::Ptr (new PointCloud());
   _occ_voxel_cloud = PointCloud::Ptr (new PointCloud());
 }
@@ -102,11 +100,50 @@ Object::Object(const string &model_,
   _max(max_),
   _color(color_),
   _cloud(cloud_),
-  _resolution(0.05),
-  _octree(new octomap::OcTree(_resolution)),
-  _unn_voxel_cloud(new PointCloud()),
+  _octree(new octomap::OcTree(0.05)),
   _fre_voxel_cloud(new PointCloud()),
   _occ_voxel_cloud(new PointCloud()){}
+
+Object::Object(const string &model_,
+               const Eigen::Vector3f &position_,
+               const Eigen::Vector3f &min_,
+               const Eigen::Vector3f &max_,
+               const Eigen::Vector3f &color_,
+               const string &cloud_filename,
+               const string &octree_filename,
+               const string &fre_voxel_cloud_filename,
+               const string &occ_voxel_cloud_filename):
+  _model(model_),
+  _position(position_),
+  _min(min_),
+  _max(max_),
+  _color(color_),
+  _cloud(new PointCloud()),
+  _fre_voxel_cloud(new PointCloud()),
+  _occ_voxel_cloud(new PointCloud()){
+
+  pcl::io::loadPCDFile<Point> (cloud_filename, *_cloud);
+
+  _octree = new octomap::OcTree(octree_filename);
+
+  if(fre_voxel_cloud_filename != "...")
+    pcl::io::loadPCDFile<Point> (fre_voxel_cloud_filename, *_fre_voxel_cloud);
+
+  if(occ_voxel_cloud_filename != "...")
+    pcl::io::loadPCDFile<Point> (occ_voxel_cloud_filename, *_occ_voxel_cloud);
+
+}
+
+Object::Object(const Object &obj):
+  _model(obj.model()),
+  _position(obj.position()),
+  _min(obj.min()),
+  _max(obj.max()),
+  _color(obj.color()),
+  _cloud(obj.cloud()),
+  _octree(obj.octree()),
+  _fre_voxel_cloud(obj.freVoxelCloud()),
+  _occ_voxel_cloud(obj.occVoxelCloud()){}
 
 Object::~Object(){
   delete _octree;
@@ -148,13 +185,8 @@ void Object::merge(const ObjectPtr & o){
 
   _position = (_min+_max)/2.0f;
 
-  std::cerr << std::endl << "Merging: " << _model << std::endl;
-  std::cerr << "old: " << _cloud->width << "x" << _cloud->height << "\t";
-
   //add new points
   *_cloud += *o->cloud();
-
-  std::cerr << "new: " << _cloud->width << "x" << _cloud->height << std::endl;
 
   //voxelize
   PointCloud::Ptr cloud_filtered (new PointCloud());
@@ -168,6 +200,8 @@ void Object::merge(const ObjectPtr & o){
 }
 
 void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr & cloud){
+
+  std::cerr << _model << " ";
 
   if(cloud->empty())
     return;
@@ -190,7 +224,7 @@ void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr &
       if(!inRange(p.x(),p.y(),p.z()))
         continue;
 
-      if (_octree->isNodeOccupied(*it)){ // occupied voxels        
+      if (_octree->isNodeOccupied(*it)){ // occupied voxels
         pt.x = p.x();
         pt.y = p.y();
         pt.z = p.z();
@@ -204,4 +238,9 @@ void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr &
       }
     }
   }
+  _fre_voxel_cloud->width = _fre_voxel_cloud->size();
+  _fre_voxel_cloud->height = 1;
+
+  _occ_voxel_cloud->width = _occ_voxel_cloud->size();
+  _occ_voxel_cloud->height = 1;
 }

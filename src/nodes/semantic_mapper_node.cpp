@@ -232,10 +232,57 @@ private:
     for(int i=0; i<global_map->size(); ++i){
       const ObjectPtr& obj = global_map->at(i);
       lucrezio_semantic_mapper::Object o;
+      //model
       o.type = obj->model();
+//      std::cerr << obj->model() << ": ";
+
+      //position
       o.position.x = obj->position().x();
       o.position.y = obj->position().y();
       o.position.z = obj->position().z();
+
+      //min
+      o.min.x = obj->min().x();
+      o.min.y = obj->min().y();
+      o.min.z = obj->min().z();
+
+      //max
+      o.max.x = obj->max().x();
+      o.max.y = obj->max().y();
+      o.max.z = obj->max().z();
+
+      //max
+      o.color.x = obj->color().x();
+      o.color.y = obj->color().y();
+      o.color.z = obj->color().z();
+
+      //cloud
+//      std::cerr << "cloud(" << obj->cloud()->size() << ") - ";
+      const std::string cloud_filename = obj->model()+".pcd";
+      o.cloud_filename = cloud_filename;
+      pcl::io::savePCDFileASCII(cloud_filename,*(obj->cloud()));
+
+      //octree
+      const std::string octree_filename = obj->model()+".ot";
+      o.octree_filename = octree_filename;
+      obj->octree()->writeBinary(octree_filename);
+
+      //fre voxel cloud
+      o.fre_voxel_cloud_filename = "...";
+      if(obj->freVoxelCloud()->size()){
+        const std::string fre_voxel_cloud_filename = obj->model()+"_fre.pcd";
+        o.fre_voxel_cloud_filename = fre_voxel_cloud_filename;
+        pcl::io::savePCDFileASCII(fre_voxel_cloud_filename,*(obj->freVoxelCloud()));
+      }
+
+      //occ voxel cloud
+      o.occ_voxel_cloud_filename = "...";
+      if(obj->occVoxelCloud()->size()){
+        const std::string occ_voxel_cloud_filename = obj->model()+"_occ.pcd";
+        o.occ_voxel_cloud_filename = occ_voxel_cloud_filename;
+        pcl::io::savePCDFileASCII(occ_voxel_cloud_filename,*(obj->occVoxelCloud()));
+      }
+
       sm_msg.objects.push_back(o);
     }
   }

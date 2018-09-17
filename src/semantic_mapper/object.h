@@ -48,6 +48,18 @@ class Object {
            const Eigen::Vector3f &color_=Eigen::Vector3f::Zero(),
            const PointCloud::Ptr &cloud_=0);
 
+    Object(const std::string &model_,
+           const Eigen::Vector3f &position_,
+           const Eigen::Vector3f &min_,
+           const Eigen::Vector3f &max_,
+           const Eigen::Vector3f &color_,
+           const std::string &cloud_filename,
+           const std::string &octree_filename,
+           const std::string &fre_voxel_cloud_filename,
+           const std::string &occ_voxel_cloud_filename);
+
+    Object(const Object& obj);
+
     //dtor
     ~Object();
 
@@ -68,11 +80,9 @@ class Object {
     inline const PointCloud::Ptr &cloud() const {return _cloud;}
     inline PointCloud::Ptr &cloud() {return _cloud;}
 
-    inline const PointCloud::Ptr &unnVoxelCloud() const {return _unn_voxel_cloud;}
     inline const PointCloud::Ptr &freVoxelCloud() const {return _fre_voxel_cloud;}
     inline const PointCloud::Ptr &occVoxelCloud() const {return _occ_voxel_cloud;}
 
-    inline const float resolution() const {return _resolution;}
     inline octomap::OcTree* octree() const {return _octree;}
 
     //check if a point falls in the bounding box
@@ -109,11 +119,9 @@ class Object {
 
     pcl::VoxelGrid<Point> _voxelizer;
 
-    float _resolution;
     octomap::OcTree* _octree;
     PointCloud::Ptr _occ_voxel_cloud;
     PointCloud::Ptr _fre_voxel_cloud;
-    PointCloud::Ptr _unn_voxel_cloud;
 };
 
 class GtObject{
