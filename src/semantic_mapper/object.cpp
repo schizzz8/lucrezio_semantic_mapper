@@ -201,8 +201,6 @@ void Object::merge(const ObjectPtr & o){
 
 void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr & cloud){
 
-  std::cerr << _model << " ";
-
   if(cloud->empty())
     return;
 
