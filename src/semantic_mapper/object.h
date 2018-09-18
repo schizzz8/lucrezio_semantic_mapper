@@ -3,7 +3,6 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <memory>
 
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -23,10 +22,10 @@ typedef pcl::PointXYZRGB Point;
 typedef pcl::PointCloud<Point> PointCloud;
 
 class Object;
-typedef std::shared_ptr<Object> ObjectPtr;
+typedef Object* ObjectPtr;
 typedef std::vector<ObjectPtr> ObjectPtrVector;
 typedef std::map<ObjectPtr,int> ObjectPtrIdMap;
-typedef std::set<Object> ObjectSet;
+typedef std::set<ObjectPtr> ObjectPtrSet;
 typedef std::map<std::string,Object> ObjectStringMap;
 
 class GtObject;
