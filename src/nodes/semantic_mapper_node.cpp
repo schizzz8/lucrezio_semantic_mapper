@@ -17,7 +17,6 @@
 
 #include <object_detector/object_detector.h>
 #include <semantic_mapper/semantic_mapper.h>
-#include <map_evaluator/map_evaluator.h>
 
 #include <lucrezio_semantic_mapper/SemanticMap.h>
 
@@ -44,10 +43,12 @@ public:
 
     _label_image_pub = _it.advertise("/camera/rgb/label_image", 1);
     _cloud_pub = _nh.advertise<PointCloud>("visualization_cloud",1);
-    _marker_pub = _nh.advertise<visualization_msgs::Marker>("visualization_marker",1);
+    _marker_pub = _nh.advertise<visualization_msgs::Marker>("visualization_markers",1);
 
     _camera_offset.setIdentity();
     _camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
+
+    ROS_INFO("Running semantic_mapper_node...");
   }
 
   void filterCallback(const lucrezio_simulation_environments::LogicalImage::ConstPtr &logical_image_msg,
@@ -125,16 +126,6 @@ public:
 
   }
 
-  void evaluateMap(){
-    std::cerr << std::endl;
-    std::string path = ros::package::getPath("lucrezio_simulation_environments");
-    _evaluator.setReference(path+"/config/envs/test_apartment_2/object_locations.yaml");
-    _evaluator.setCurrent(_mapper.globalMap());
-
-    _evaluator.compute();
-
-    _evaluator.storeMap(_mapper.globalMap());
-  }
 
 protected:
 
@@ -155,7 +146,6 @@ protected:
   //computing modules
   ObjectDetector _detector;
   SemanticMapper _mapper;
-  MapEvaluator _evaluator;
 
   //semantic map publisher
   ros::Publisher _sm_pub;
@@ -426,10 +416,6 @@ int main(int argc, char **argv){
     ros::spinOnce();
     rate.sleep();
   }
-
-  std::cerr << std::endl;
-  std::cerr << "Map Evaluation..." << std::endl;
-  mapper.evaluateMap();
 
   return 0;
 }

@@ -131,7 +131,6 @@ catkin_package(
   LIBRARIES
     object_detector_library
     semantic_mapper_library
-    map_evaluator_library
     utils_library
   CATKIN_DEPENDS
     cv_bridge 

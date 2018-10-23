@@ -49,7 +49,6 @@ void ObjectDetector::setupDetections(){
     std::string type = _models[i].type();
     _detections[i].setType(type);
   }
-
 }
 
 void ObjectDetector::compute(){

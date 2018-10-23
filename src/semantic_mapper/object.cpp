@@ -40,8 +40,13 @@ namespace YAML {
       if(!node.IsMap())
         return false;
       obj.model() = node["model"].as<std::string>();
-      obj.position() = node["position"].as<Eigen::Vector3f>();
+//      obj.position() = node["position"].as<Eigen::Vector3f>();
       obj.orientation() = node["orientation"].as<Eigen::Vector3f>();
+      Eigen::Vector3f min = node["min"].as<Eigen::Vector3f>();
+      Eigen::Vector3f max = node["max"].as<Eigen::Vector3f>();
+      obj.min() = min;
+      obj.max() = max;
+      obj.position() = (min+max)/2.0f;
       return true;
     }
   };
@@ -191,7 +196,8 @@ void Object::merge(const ObjectPtr & o){
   //voxelize
   PointCloud::Ptr cloud_filtered (new PointCloud());
   _voxelizer.setInputCloud(_cloud);
-  _voxelizer.setLeafSize(0.05f,0.05f,0.05f);
+//  _voxelizer.setLeafSize(0.05f,0.05f,0.05f);
+  _voxelizer.setLeafSize(0.01f,0.01f,0.01f);
   _voxelizer.filter(*cloud_filtered);
 
   //update cloud
