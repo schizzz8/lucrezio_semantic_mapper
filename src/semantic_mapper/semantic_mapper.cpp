@@ -58,7 +58,7 @@ void SemanticMapper::extractObjects(const DetectionVector &detections,
 
       Point point = points->at(pixels[i].y(),pixels[i].x());
 
-      if(std::sqrt(point.x*point.x + point.y*point.y + point.z*point.z) < 1e-3 || point.z < 0.03)
+      if(std::sqrt(point.x*point.x + point.y*point.y + point.z*point.z) < 1e-3 || point.z <= 0.1)
         continue;
 
       point = pcl::transformPoint(point,_globalT*_camera_offset);
