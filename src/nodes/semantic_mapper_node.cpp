@@ -63,10 +63,13 @@ public:
     ros::Time depth_stamp;
     pcl_conversions::fromPCL(depth_points_msg->header.stamp,depth_stamp);
     ros::Duration stamp_diff = image_stamp - depth_stamp;
-    if(std::abs(stamp_diff.toSec()) > 0.03)
+    std::cerr << "Logical stamp: " << image_stamp.toSec() << std::endl;
+    std::cerr << "Depth stamp: " << depth_stamp.toSec() << std::endl;
+    std::cerr << "Diff: " << std::abs(stamp_diff.toSec()) << std::endl;
+    if(std::abs(stamp_diff.toSec()) > 0.01)
       return;
 
-    std::cerr << ".";
+    ROS_INFO("executing callback!!!");
 
     _last_timestamp = image_stamp;
 
@@ -98,27 +101,28 @@ public:
     //update
     _mapper.mergeMaps();
 
+    //publish label image
+    if(_detector.detections().size() && 0){
+      sensor_msgs::ImagePtr label_image_msg;
+      makeLabelImageFromDetections(label_image_msg,detections);
+      _label_image_pub.publish(label_image_msg);
+    }
     //publish semantic map message
-    if(_mapper.globalMap()->size()){
+    if(_mapper.globalMap()->size() && 0){
       lucrezio_semantic_mapper::SemanticMap sm_msg;
       makeMsgFromMap(sm_msg,_mapper.globalMap());
       _sm_pub.publish(sm_msg);
     }
 
-    //publish label image
-    sensor_msgs::ImagePtr label_image_msg;
-    makeLabelImageFromDetections(label_image_msg,detections);
-    _label_image_pub.publish(label_image_msg);
-
     //publish map point cloud
-    if(_mapper.globalMap()->size()){
+    if(_mapper.globalMap()->size() && 0){
       PointCloud::Ptr cloud_msg (new PointCloud);
       makeCloudFromMap(cloud_msg,_mapper.globalMap());
       _cloud_pub.publish (cloud_msg);
     }
 
     //publish object bounding boxes
-    if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
+    if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers() && 0){
       visualization_msgs::Marker marker;
       makeMarkerFromMap(marker,_mapper.globalMap());
       _marker_pub.publish(marker);
@@ -157,6 +161,7 @@ protected:
   ros::Publisher _marker_pub;
 
 private:
+
   Eigen::Isometry3f tfTransform2eigen(const tf::Transform& p){
     Eigen::Isometry3f iso;
     iso.translation().x()=p.getOrigin().x();
@@ -224,7 +229,6 @@ private:
       lucrezio_semantic_mapper::Object o;
       //model
       o.type = obj->model();
-//      std::cerr << obj->model() << ": ";
 
       //position
       o.position.x = obj->position().x();
@@ -247,7 +251,6 @@ private:
       o.color.z = obj->color().z();
 
       //cloud
-//      std::cerr << "cloud(" << obj->cloud()->size() << ") - ";
       const std::string cloud_filename = obj->model()+".pcd";
       o.cloud_filename = cloud_filename;
       pcl::io::savePCDFileASCII(cloud_filename,*(obj->cloud()));
@@ -409,13 +412,13 @@ int main(int argc, char **argv){
 
   SemanticMapperNode mapper(nh);
 
-  //  ros::spin();
+  ros::spin();
 
-  ros::Rate rate(1);
-  while(ros::ok()){
-    ros::spinOnce();
-    rate.sleep();
-  }
+//  ros::Rate rate(1);
+//  while(ros::ok()){
+//    ros::spinOnce();
+//    rate.sleep();
+//  }
 
   return 0;
 }
