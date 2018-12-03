@@ -31,6 +31,9 @@ class SemanticMapper{
     void mergeMaps();
 
     const ObjectPtrVector* globalMap() const {return _global_map;}
+    const ObjectPtrVector* localMap() const {return _local_map;}
+
+    const ObjectPtrIdMap& associations() const {return _associations;}
 
   protected:
 
