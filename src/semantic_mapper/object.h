@@ -27,6 +27,7 @@ typedef std::vector<ObjectPtr> ObjectPtrVector;
 typedef std::map<ObjectPtr,int> ObjectPtrIdMap;
 typedef std::set<ObjectPtr> ObjectPtrSet;
 typedef std::map<std::string,Object> ObjectStringMap;
+typedef std::map<std::string,ObjectPtr> StringObjectPtrMap;
 
 class GtObject;
 typedef std::map<std::string,GtObject> GtObjectStringMap;

@@ -63,13 +63,14 @@ public:
     ros::Time depth_stamp;
     pcl_conversions::fromPCL(depth_points_msg->header.stamp,depth_stamp);
     ros::Duration stamp_diff = image_stamp - depth_stamp;
-    std::cerr << "Logical stamp: " << image_stamp.toSec() << std::endl;
-    std::cerr << "Depth stamp: " << depth_stamp.toSec() << std::endl;
-    std::cerr << "Diff: " << std::abs(stamp_diff.toSec()) << std::endl;
+//    std::cerr << "Logical stamp: " << image_stamp.toSec() << std::endl;
+//    std::cerr << "Depth stamp: " << depth_stamp.toSec() << std::endl;
+//    std::cerr << "Diff: " << std::abs(stamp_diff.toSec()) << std::endl;
     if(std::abs(stamp_diff.toSec()) > 0.01)
       return;
 
-    ROS_INFO("executing callback!!!");
+//    ROS_INFO("executing callback!!!");
+    std::cerr << ".";
 
     _last_timestamp = image_stamp;
 
@@ -108,7 +109,7 @@ public:
       _label_image_pub.publish(label_image_msg);
     }
     //publish semantic map message
-    if(_mapper.globalMap()->size() && 0){
+    if(_mapper.globalMap()->size()){
       lucrezio_semantic_mapper::SemanticMap sm_msg;
       makeMsgFromMap(sm_msg,_mapper.globalMap());
       _sm_pub.publish(sm_msg);
