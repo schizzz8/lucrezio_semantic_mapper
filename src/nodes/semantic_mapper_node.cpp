@@ -103,7 +103,7 @@ public:
     _mapper.mergeMaps();
 
     //publish label image
-    if(_detector.detections().size() && 0){
+    if(_detector.detections().size()){
       sensor_msgs::ImagePtr label_image_msg;
       makeLabelImageFromDetections(label_image_msg,detections);
       _label_image_pub.publish(label_image_msg);
@@ -116,14 +116,14 @@ public:
     }
 
     //publish map point cloud
-    if(_mapper.globalMap()->size() && 0){
+    if(_mapper.globalMap()->size()){
       PointCloud::Ptr cloud_msg (new PointCloud);
       makeCloudFromMap(cloud_msg,_mapper.globalMap());
       _cloud_pub.publish (cloud_msg);
     }
 
     //publish object bounding boxes
-    if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers() && 0){
+    if(_mapper.globalMap()->size() && _marker_pub.getNumSubscribers()){
       visualization_msgs::Marker marker;
       makeMarkerFromMap(marker,_mapper.globalMap());
       _marker_pub.publish(marker);
