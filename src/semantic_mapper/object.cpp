@@ -40,7 +40,7 @@ namespace YAML {
       if(!node.IsMap())
         return false;
       obj.model() = node["model"].as<std::string>();
-//      obj.position() = node["position"].as<Eigen::Vector3f>();
+      //      obj.position() = node["position"].as<Eigen::Vector3f>();
       obj.orientation() = node["orientation"].as<Eigen::Vector3f>();
       Eigen::Vector3f min = node["min"].as<Eigen::Vector3f>();
       Eigen::Vector3f max = node["max"].as<Eigen::Vector3f>();
@@ -168,10 +168,10 @@ bool Object::inRange(const Point &point) const{
           point.z >= _min.z() && point.z <= _max.z());
 }
 
-bool Object::inRange(const float &x, const float &y, const float &z) const{
-  return (x >= _min.x() && x <= _max.x() &&
-          y >= _min.y() && y <= _max.y() &&
-          z >= _min.z() && z <= _max.z());
+bool Object::inRange(const float &x, const float &y, const float &z, const int off) const{
+  return (x >= _min.x() - off && x <= _max.x() + off &&
+          y >= _min.y() - off && y <= _max.y() + off &&
+          z >= _min.z() - off && z <= _max.z() + off);
 }
 
 void Object::merge(const ObjectPtr & o){
@@ -196,7 +196,7 @@ void Object::merge(const ObjectPtr & o){
   //voxelize
   PointCloud::Ptr cloud_filtered (new PointCloud());
   _voxelizer.setInputCloud(_cloud);
-//  _voxelizer.setLeafSize(0.05f,0.05f,0.05f);
+  //  _voxelizer.setLeafSize(0.05f,0.05f,0.05f);
   _voxelizer.setLeafSize(0.02f,0.02f,0.02f);
   _voxelizer.filter(*cloud_filtered);
 
@@ -293,13 +293,21 @@ void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr &
   Point pt;
   _occ_voxel_cloud->clear();
   _fre_voxel_cloud->clear();
+
+  //first loop to remove useless voxels (thanks to Hornung)
   for(octomap::OcTree::tree_iterator it = _octree->begin_tree(_octree->getTreeDepth()),end=_octree->end_tree(); it!= end; ++it) {
     if (it.isLeaf()) {
       p = it.getCoordinate();
+      if(!inRange(p.x(),p.y(),p.z())){
+        _octree->deleteNode(it.getKey());
+      }
+    }
+  }
 
-      if(!inRange(p.x(),p.y(),p.z()))
-        continue;
-
+  //second loop to store useful voxels
+  for(octomap::OcTree::tree_iterator it = _octree->begin_tree(_octree->getTreeDepth()),end=_octree->end_tree(); it!= end; ++it) {
+    if (it.isLeaf()) {
+      p = it.getCoordinate();
       if (_octree->isNodeOccupied(*it)){ // occupied voxels
         pt.x = p.x();
         pt.y = p.y();
@@ -314,6 +322,7 @@ void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr &
       }
     }
   }
+
   _fre_voxel_cloud->width = _fre_voxel_cloud->size();
   _fre_voxel_cloud->height = 1;
 

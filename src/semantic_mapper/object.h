@@ -89,7 +89,7 @@ class Object {
     bool inRange(const Point &point) const;
 
     //check if a point falls in the bounding box
-    bool inRange(const float& x, const float& y, const float& z) const;
+    bool inRange(const float& x, const float& y, const float& z, const int off = 0) const;
 
     //merge two objects
     void merge(const ObjectPtr &o);
