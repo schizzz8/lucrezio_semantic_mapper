@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="environment" default="test_apartment_2" />
+
+  <!-- semantic mapper node -->
+  <node pkg="lucrezio_semantic_mapper" type="semantic_mapper_node" name="semantic_mapper" output="screen">
+    <param name="environment" value="$(arg environment)"/>
+  </node>
+</launch>
+

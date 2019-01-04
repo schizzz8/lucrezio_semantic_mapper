@@ -25,7 +25,7 @@ class Detection{
               const std::vector<Eigen::Vector2i>& pixels_,
               const Eigen::Vector3i &color_);
 
-    void setType(const std::string &type);
+    void setup(const std::string &type, const Eigen::Vector3i& color);
 
     //setters and getters
     inline const std::string &type() const {return _type;}
@@ -40,6 +40,7 @@ class Detection{
     inline int &size() {return _size;}
     inline const Eigen::Vector3i &color() const {return _color;}
     inline Eigen::Vector3i &color() {return _color;}
+
 
   private:
     //semantic class of the detected object
@@ -59,5 +60,6 @@ class Detection{
 
     //class color (only for visualization)
     Eigen::Vector3i _color;
+
 };
 

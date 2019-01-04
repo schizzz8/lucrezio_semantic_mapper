@@ -48,6 +48,8 @@ public:
     _camera_offset.setIdentity();
     _camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
 
+    _nh.param("environment",_detector.environment(),std::string("test_apartment_2"));
+
     ROS_INFO("Running semantic_mapper_node...");
   }
 
@@ -327,7 +329,6 @@ private:
     }
     cloud->width = num_points;
     pcl_conversions::toPCL(_last_timestamp, cloud->header.stamp);
-
   }
 
   void makeMarkerFromMap(visualization_msgs::Marker &marker, const ObjectPtrVector *global_map){
@@ -409,7 +410,7 @@ private:
 int main(int argc, char **argv){
 
   ros::init(argc, argv, "semantic_mapper_node");
-  ros::NodeHandle nh;
+  ros::NodeHandle nh("~");
 
   SemanticMapperNode mapper(nh);
 

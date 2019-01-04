@@ -7,6 +7,30 @@ ObjectDetector::ObjectDetector(){
   _camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
 //  _camera_offset.translation() = Eigen::Vector3f(0.0,0.0,0.6);
   _camera_offset_inv = _camera_offset.inverse();
+
+  std::string package_path = ros::package::getPath("lucrezio_simulation_environments");
+  std::string file_path = package_path + "/config/envs/" + _environment + "/object_locations.yaml";
+  std::cerr << "Loading models from: " << file_path << std::endl;
+
+  //populating model colors map
+  int c=1;
+  YAML::Node map = YAML::LoadFile(file_path);
+  for(YAML::const_iterator it=map.begin(); it!=map.end(); ++it){
+    const std::string &key=it->first.as<std::string>();
+
+    std::stringstream stream;
+    stream << std::setw(6) << std::setfill('0') << std::hex << ((float)c/12.0f)*16777215;
+    std::string result(stream.str());
+
+    unsigned long r_value = std::strtoul(result.substr(0,2).c_str(), 0, 16);
+    unsigned long g_value = std::strtoul(result.substr(2,2).c_str(), 0, 16);
+    unsigned long b_value = std::strtoul(result.substr(4,2).c_str(), 0, 16);
+
+    _model_colors.insert(std::make_pair(key,Eigen::Vector3i(r_value,g_value,b_value)));
+    c++;
+  }
+
+
 }
 
 void ObjectDetector::setupDetections(){
@@ -45,9 +69,13 @@ void ObjectDetector::setupDetections(){
     _models[i].min() = min;
     _models[i].max() = max;
 
-    //set detection type
+    //setup detection
     std::string type = _models[i].type();
-    _detections[i].setType(type);
+    StringVector3iMap::iterator it = _model_colors.find(type);
+    Eigen::Vector3i color = Eigen::Vector3i::Constant(1);
+    if(it != _model_colors.end())
+      color = it->second;
+    _detections[i].setup(type,color);
   }
 }
 

@@ -3,6 +3,13 @@
 #include "detection.h"
 #include "model.h"
 
+#include <ros/package.h>
+#include <yaml-cpp/yaml.h>
+
+typedef std::map<std::string,Eigen::Vector3i, std::less<std::string>,
+Eigen::aligned_allocator<std::pair<const std::string, Eigen::Vector3i> > > StringVector3iMap;
+
+
 //this class implements an object detector in a simulation environment
 class ObjectDetector {
   public:
@@ -23,6 +30,8 @@ class ObjectDetector {
     inline void setInputCloud(const PointCloud::ConstPtr &cloud_){_cloud=cloud_;}
     inline const DetectionVector &detections() const {return _detections;}
 
+    inline std::string& environment() {return _environment;}
+
   protected:
 
     //camera transform
@@ -39,5 +48,11 @@ class ObjectDetector {
 
     //vector of detections
     DetectionVector _detections;
+
+    //environment identifier
+    std::string _environment;
+
+    //model colors map
+    StringVector3iMap _model_colors;
 };
 
