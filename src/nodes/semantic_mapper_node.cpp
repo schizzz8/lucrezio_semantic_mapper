@@ -49,6 +49,7 @@ public:
     _camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
 
     _nh.param("environment",_detector.environment(),std::string("test_apartment_2"));
+    _detector.setupModelColors();
 
     ROS_INFO("Running semantic_mapper_node...");
   }

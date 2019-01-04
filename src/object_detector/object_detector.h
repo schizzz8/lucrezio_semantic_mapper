@@ -17,6 +17,9 @@ class ObjectDetector {
 
     ObjectDetector();
 
+    //setup model colors
+    void setupModelColors();
+
     //for each model the 3d bounding box is transformed in the rgbd camera frame
     void setupDetections();
 

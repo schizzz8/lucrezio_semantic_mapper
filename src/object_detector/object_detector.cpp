@@ -5,9 +5,11 @@
 ObjectDetector::ObjectDetector(){
   _camera_offset.setIdentity();
   _camera_offset.linear() = Eigen::Quaternionf(0.5,-0.5,0.5,-0.5).toRotationMatrix();
-//  _camera_offset.translation() = Eigen::Vector3f(0.0,0.0,0.6);
+  //  _camera_offset.translation() = Eigen::Vector3f(0.0,0.0,0.6);
   _camera_offset_inv = _camera_offset.inverse();
+}
 
+void ObjectDetector::setupModelColors(){
   std::string package_path = ros::package::getPath("lucrezio_simulation_environments");
   std::string file_path = package_path + "/config/envs/" + _environment + "/object_locations.yaml";
   std::cerr << "Loading models from: " << file_path << std::endl;
@@ -29,8 +31,6 @@ ObjectDetector::ObjectDetector(){
     _model_colors.insert(std::make_pair(key,Eigen::Vector3i(r_value,g_value,b_value)));
     c++;
   }
-
-
 }
 
 void ObjectDetector::setupDetections(){
@@ -84,13 +84,13 @@ void ObjectDetector::compute(){
   if(_cloud->points.empty())
     return;
 
-//  Point pt;
+  //  Point pt;
   int h = _cloud->height;
   int w = _cloud->width;
   for(int r=0; r<h; ++r)
     for(int c=0; c<w; ++c){
       const Point &p = _cloud->at(c,r);
-//      pt = pcl::transformPoint(p,_camera_transform*_camera_offset);
+      //      pt = pcl::transformPoint(p,_camera_transform*_camera_offset);
 
       for(size_t i=0; i<_models.size(); ++i){
 
