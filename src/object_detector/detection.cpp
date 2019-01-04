@@ -19,7 +19,6 @@ Detection::Detection(const std::string &type_,
   _size(0){}
 
 void Detection::setup(const std::string &type, const Eigen::Vector3i& color){
-
   _type = type;
   _color = color;
   _size=0;
