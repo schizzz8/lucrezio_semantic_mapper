@@ -217,115 +217,115 @@ void Object::updateOccupancy(const Eigen::Isometry3f &T, const PointCloud::Ptr &
   octomap::point3d sensor_origin(T.translation().x(),T.translation().y(),T.translation().z());
   _octree->insertPointCloud(scan,sensor_origin);
 
-  octomap::Pointcloud wall_point_cloud; //  wall_point_cloud will represent the sensor FoV in global coordinates.
-  octomap::point3d wall_point(1,0,0);    //  each point3d to be inserted into Pointwall
-
-  //  Iterate on each pixel (320x240)
-  for(int y=1;y<321;y++){
-    for(int z=1;z<241;z++){
-      wall_point.y()= (-0.560027)+(y*0.003489);
-      wall_point.z()= (-0.430668)+(z*0.003574);
-      wall_point_cloud.push_back(wall_point);
-    }
-  }
-
-  octomath::Vector3 translation(0,0,0);
-  float roll=atan2(_position.y()-sensor_origin.y(),_position.x()-sensor_origin.x());
-
-  octomath::Quaternion rotation(0,0,roll);
-  octomap::pose6d isometry(translation,rotation);
-  wall_point_cloud.transform(isometry);
-
   //>>>>>>>>>> Create background wall to identify known empty volxels <<<<<<<<<<
 
   /*	A background wall is built leaving empty the shadow of the object, this is
       necesary so that the octree can recognize what area is empty known and
       unknown, otherwise it will assume all tree.writeBinary("check.bt");surroundings of the cloud as unknown.  */
 
-  float alpha;	//	Angle in xy plane from sensorOrigin to each point in Pointwall
-  float beta;		//	Elevation angle from sensorOrigin to each point in Pointwall
-  float xp, yp, zp;		//	x,y,z coordinates of each point in Pointwall expressed in sensorOrigin coordinates
-  float leg_adjacent_point_wall;		//	Leg adjacent length of a right triangle formed from sensorOrigin to each point in Pointwall
-  float leg_adjacent_background_point;		//	Leg adjacent length of a right triangle formed from sensorOrigin to the new background point
-  float distance;		//  Distance from the sensorOrigin and the new background point
-  octomap::Pointcloud background_wall;     //  Pointcloud holding the background wall
-  octomap::point3d iterator; //  Helper needed for castRay function
+//  octomap::Pointcloud wall_point_cloud; //  wall_point_cloud will represent the sensor FoV in global coordinates.
+//  octomap::point3d wall_point(1,0,0);    //  each point3d to be inserted into Pointwall
 
-  //  distance will be computed so that the wall is always behind the object
-  //  distance = 2D_Distance-Centroid-FarthermostPointInBBox + offset + 2D_Distance-sensorOrigin-Centroid
-  float OFFSET=0.2;
-  Eigen::Vector3f squared_distances;
-  squared_distances[0]=pow(_position.x()-(_max.x()+OFFSET),2);
-  squared_distances[1]=pow(_position.y()-(_max.y()+OFFSET),2);
-  distance=sqrt(squared_distances[0]+squared_distances[1]);
-  squared_distances[0]=pow(_position.x()-sensor_origin.x(),2);
-  squared_distances[1]=pow(_position.y()-sensor_origin.y(),2);
+//  //  Iterate on each pixel (320x240)
+//  for(int y=1;y<321;y++){
+//    for(int z=1;z<241;z++){
+//      wall_point.y()= (-0.560027)+(y*0.003489);
+//      wall_point.z()= (-0.430668)+(z*0.003574);
+//      wall_point_cloud.push_back(wall_point);
+//    }
+//  }
 
-  distance+=sqrt(squared_distances[0]+squared_distances[1]);
+//  octomath::Vector3 translation(0,0,0);
+//  float roll=atan2(_position.y()-sensor_origin.y(),_position.x()-sensor_origin.x());
 
-  for(int i=0;i<wall_point_cloud.size();i++){
+//  octomath::Quaternion rotation(0,0,roll);
+//  octomap::pose6d isometry(translation,rotation);
+//  wall_point_cloud.transform(isometry);
 
-    if(!_octree->castRay(sensor_origin,wall_point_cloud.getPoint(i),iterator)){
+//  float alpha;	//	Angle in xy plane from sensorOrigin to each point in Pointwall
+//  float beta;		//	Elevation angle from sensorOrigin to each point in Pointwall
+//  float xp, yp, zp;		//	x,y,z coordinates of each point in Pointwall expressed in sensorOrigin coordinates
+//  float leg_adjacent_point_wall;		//	Leg adjacent length of a right triangle formed from sensorOrigin to each point in Pointwall
+//  float leg_adjacent_background_point;		//	Leg adjacent length of a right triangle formed from sensorOrigin to the new background point
+//  float distance;		//  Distance from the sensorOrigin and the new background point
+//  octomap::Pointcloud background_wall;     //  Pointcloud holding the background wall
+//  octomap::point3d iterator; //  Helper needed for castRay function
 
-      //	Transform pointwall point to sensorOrigin coordinates subtracting sensorOrigin
-      xp=wall_point_cloud.getPoint(i).x();
-      yp=wall_point_cloud.getPoint(i).y();
-      zp=wall_point_cloud.getPoint(i).z();
+//  //  distance will be computed so that the wall is always behind the object
+//  //  distance = 2D_Distance-Centroid-FarthermostPointInBBox + offset + 2D_Distance-sensorOrigin-Centroid
+//  float OFFSET=0.2;
+//  Eigen::Vector3f squared_distances;
+//  squared_distances[0]=pow(_position.x()-(_max.x()+OFFSET),2);
+//  squared_distances[1]=pow(_position.y()-(_max.y()+OFFSET),2);
+//  distance=sqrt(squared_distances[0]+squared_distances[1]);
+//  squared_distances[0]=pow(_position.x()-sensor_origin.x(),2);
+//  squared_distances[1]=pow(_position.y()-sensor_origin.y(),2);
 
-      //	Get alpha and beta angles
-      alpha=atan2(yp,xp);
-      leg_adjacent_point_wall=sqrt((xp*xp)+(yp*yp));
-      beta=atan2(zp,leg_adjacent_point_wall);
+//  distance+=sqrt(squared_distances[0]+squared_distances[1]);
 
-      //	Get the new background points and return to global coordinates by adding sensorOrigin
-      iterator.z()=sensor_origin.z()+distance*sin(beta);
-      leg_adjacent_background_point=sqrt((distance*distance)-(zp*zp));
-      iterator.y()=sensor_origin.y()+leg_adjacent_background_point*sin(alpha);
-      iterator.x()=sensor_origin.x()+leg_adjacent_background_point*cos(alpha);
+//  for(int i=0;i<wall_point_cloud.size();i++){
 
-      background_wall.push_back(iterator);		//	add points to point cloud
-    }
-  }
-  _octree->insertPointCloud(background_wall,sensor_origin);     //  Check if i can use other than scan, since it contains the cloud
+//    if(!_octree->castRay(sensor_origin,wall_point_cloud.getPoint(i),iterator)){
+
+//      //	Transform pointwall point to sensorOrigin coordinates subtracting sensorOrigin
+//      xp=wall_point_cloud.getPoint(i).x();
+//      yp=wall_point_cloud.getPoint(i).y();
+//      zp=wall_point_cloud.getPoint(i).z();
+
+//      //	Get alpha and beta angles
+//      alpha=atan2(yp,xp);
+//      leg_adjacent_point_wall=sqrt((xp*xp)+(yp*yp));
+//      beta=atan2(zp,leg_adjacent_point_wall);
+
+//      //	Get the new background points and return to global coordinates by adding sensorOrigin
+//      iterator.z()=sensor_origin.z()+distance*sin(beta);
+//      leg_adjacent_background_point=sqrt((distance*distance)-(zp*zp));
+//      iterator.y()=sensor_origin.y()+leg_adjacent_background_point*sin(alpha);
+//      iterator.x()=sensor_origin.x()+leg_adjacent_background_point*cos(alpha);
+
+//      background_wall.push_back(iterator);		//	add points to point cloud
+//    }
+//  }
+//  _octree->insertPointCloud(background_wall,sensor_origin);     //  Check if i can use other than scan, since it contains the cloud
 
 
-  octomap::point3d p;
-  Point pt;
-  _occ_voxel_cloud->clear();
-  _fre_voxel_cloud->clear();
+//  octomap::point3d p;
+//  Point pt;
+//  _occ_voxel_cloud->clear();
+//  _fre_voxel_cloud->clear();
 
-  //first loop to remove useless voxels (thanks to Hornung)
-  for(octomap::OcTree::tree_iterator it = _octree->begin_tree(_octree->getTreeDepth()),end=_octree->end_tree(); it!= end; ++it) {
-    if (it.isLeaf()) {
-      p = it.getCoordinate();
-      if(!inRange(p.x(),p.y(),p.z())){
-        _octree->deleteNode(it.getKey());
-      }
-    }
-  }
+//  //first loop to remove useless voxels (thanks to Hornung)
+//  for(octomap::OcTree::tree_iterator it = _octree->begin_tree(_octree->getTreeDepth()),end=_octree->end_tree(); it!= end; ++it) {
+//    if (it.isLeaf()) {
+//      p = it.getCoordinate();
+//      if(!inRange(p.x(),p.y(),p.z())){
+//        _octree->deleteNode(it.getKey());
+//      }
+//    }
+//  }
 
-  //second loop to store useful voxels
-  for(octomap::OcTree::tree_iterator it = _octree->begin_tree(_octree->getTreeDepth()),end=_octree->end_tree(); it!= end; ++it) {
-    if (it.isLeaf()) {
-      p = it.getCoordinate();
-      if (_octree->isNodeOccupied(*it)){ // occupied voxels
-        pt.x = p.x();
-        pt.y = p.y();
-        pt.z = p.z();
-        _occ_voxel_cloud->points.push_back(pt);
-      }
-      else { // free voxels
-        pt.x = p.x();
-        pt.y = p.y();
-        pt.z = p.z();
-        _fre_voxel_cloud->points.push_back(pt);
-      }
-    }
-  }
+//  //second loop to store useful voxels
+//  for(octomap::OcTree::tree_iterator it = _octree->begin_tree(_octree->getTreeDepth()),end=_octree->end_tree(); it!= end; ++it) {
+//    if (it.isLeaf()) {
+//      p = it.getCoordinate();
+//      if (_octree->isNodeOccupied(*it)){ // occupied voxels
+//        pt.x = p.x();
+//        pt.y = p.y();
+//        pt.z = p.z();
+//        _occ_voxel_cloud->points.push_back(pt);
+//      }
+//      else { // free voxels
+//        pt.x = p.x();
+//        pt.y = p.y();
+//        pt.z = p.z();
+//        _fre_voxel_cloud->points.push_back(pt);
+//      }
+//    }
+//  }
 
-  _fre_voxel_cloud->width = _fre_voxel_cloud->size();
-  _fre_voxel_cloud->height = 1;
+//  _fre_voxel_cloud->width = _fre_voxel_cloud->size();
+//  _fre_voxel_cloud->height = 1;
 
-  _occ_voxel_cloud->width = _occ_voxel_cloud->size();
-  _occ_voxel_cloud->height = 1;
+//  _occ_voxel_cloud->width = _occ_voxel_cloud->size();
+//  _occ_voxel_cloud->height = 1;
 }

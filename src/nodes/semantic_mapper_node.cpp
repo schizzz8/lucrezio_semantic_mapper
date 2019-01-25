@@ -266,7 +266,7 @@ private:
 
       //fre voxel cloud
       o.fre_voxel_cloud_filename = "...";
-      if(obj->freVoxelCloud()->size()){
+      if(obj->freVoxelCloud()->size() && 0){
         const std::string fre_voxel_cloud_filename = obj->model()+"_fre.pcd";
         o.fre_voxel_cloud_filename = fre_voxel_cloud_filename;
         pcl::io::savePCDFileASCII(fre_voxel_cloud_filename,*(obj->freVoxelCloud()));
@@ -274,7 +274,7 @@ private:
 
       //occ voxel cloud
       o.occ_voxel_cloud_filename = "...";
-      if(obj->occVoxelCloud()->size()){
+      if(obj->occVoxelCloud()->size() && 0){
         const std::string occ_voxel_cloud_filename = obj->model()+"_occ.pcd";
         o.occ_voxel_cloud_filename = occ_voxel_cloud_filename;
         pcl::io::savePCDFileASCII(occ_voxel_cloud_filename,*(obj->occVoxelCloud()));

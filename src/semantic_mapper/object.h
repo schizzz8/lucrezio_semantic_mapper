@@ -55,8 +55,8 @@ class Object {
            const Eigen::Vector3f &color_,
            const std::string &cloud_filename,
            const std::string &octree_filename,
-           const std::string &fre_voxel_cloud_filename,
-           const std::string &occ_voxel_cloud_filename);
+           const std::string &fre_voxel_cloud_filename="",
+           const std::string &occ_voxel_cloud_filename="");
 
     Object(const Object& obj);
 
