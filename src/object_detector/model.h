@@ -30,6 +30,8 @@ class Model{
     const Eigen::Isometry3f &pose() const {return _pose;}
     Eigen::Isometry3f &pose() {return _pose;}
 
+    inline const Eigen::Vector3f position() const {return _pose.translation();}
+
     inline const Eigen::Vector3f &min() const {return _min;}
     inline Eigen::Vector3f &min() {return _min;}
 
